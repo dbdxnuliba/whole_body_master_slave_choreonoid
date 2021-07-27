@@ -41,7 +41,7 @@ module WholeBodyMasterSlaveChoreonoid
     };
     boolean startWholeBodyMasterSlave();
     boolean stopWholeBodyMasterSlave();
-    void setWholeBodyMasterSlaveChoreonoidParam(in WholeBodyMasterSlaveChoreonoidParam i_param);
-    void getWholeBodyMasterSlaveChoreonoidParam(out WholeBodyMasterSlaveChoreonoidParam i_param);
+    void setParams(in WholeBodyMasterSlaveChoreonoidParam i_param);
+    void getParams(out WholeBodyMasterSlaveChoreonoidParam i_param);
   };
 };

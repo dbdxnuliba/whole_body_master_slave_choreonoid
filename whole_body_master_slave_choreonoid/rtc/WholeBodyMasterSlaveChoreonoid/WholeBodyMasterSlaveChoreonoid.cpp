@@ -1,11 +1,18 @@
-#include "WholeBodyMasterSlave.h"
+#include "WholeBodyMasterSlaveChoreonoid.h"
 
 #define DEBUGP (loop%200==0)
 #define DEBUGP_ONCE (loop==0)
 
-static const char* WholeBodyMasterSlave_spec[] = {
-        "implementation_id", "WholeBodyMasterSlave",
-        "type_name",         "WholeBodyMasterSlave",
+inline std::vector<std::string> to_string_vector (const OpenHRP::WholeBodyMasterSlaveChoreonoidService::StrSequence& in) {
+  std::vector<std::string> ret(in.length()); for(int i=0; i<in.length(); i++){ ret[i] = in[i]; } return ret;
+}
+inline OpenHRP::WholeBodyMasterSlaveChoreonoidService::StrSequence to_StrSequence  (const std::vector<std::string>& in){
+  OpenHRP::WholeBodyMasterSlaveChoreonoidService::StrSequence ret; ret.length(in.size()); for(int i=0; i<in.size(); i++){ ret[i] = in[i].c_str(); } return ret;
+}
+
+static const char* WholeBodyMasterSlaveChoreonoid_spec[] = {
+        "implementation_id", "WholeBodyMasterSlaveChoreonoid",
+        "type_name",         "WholeBodyMasterSlaveChoreonoid",
         "description",       "wholebodymasterslave component",
         "version",           HRPSYS_PACKAGE_VERSION,
         "vendor",            "AIST",
@@ -18,7 +25,7 @@ static const char* WholeBodyMasterSlave_spec[] = {
         ""
 };
 
-WholeBodyMasterSlave::WholeBodyMasterSlave(RTC::Manager* manager) : RTC::DataFlowComponentBase(manager),
+WholeBodyMasterSlaveChoreonoid::WholeBodyMasterSlaveChoreonoid(RTC::Manager* manager) : RTC::DataFlowComponentBase(manager),
     m_qRefIn("qRef", m_qRef),// from sh
     m_qActIn("qAct", m_qAct),
     m_zmpIn("zmpIn", m_zmp),
@@ -36,7 +43,7 @@ WholeBodyMasterSlave::WholeBodyMasterSlave(RTC::Manager* manager) : RTC::DataFlo
     m_delayCheckPacketInboundIn("delay_check_packet_inbound", m_delayCheckPacket),
     m_delayCheckPacketOutboundOut("delay_check_packet_outbound", m_delayCheckPacket),
     m_exDataIndexIn("exDataIndex", m_exDataIndex),
-    m_WholeBodyMasterSlaveServicePort("WholeBodyMasterSlaveService"),
+    m_WholeBodyMasterSlaveChoreonoidServicePort("WholeBodyMasterSlaveChoreonoidService"),
     m_AutoBalancerServicePort("AutoBalancerService"),
     m_StabilizerServicePort("StabilizerService"),
     m_debugLevel(0)
@@ -44,9 +51,9 @@ WholeBodyMasterSlave::WholeBodyMasterSlave(RTC::Manager* manager) : RTC::DataFlo
     m_service0.wholebodymasterslave(this);
 }
 
-WholeBodyMasterSlave::~WholeBodyMasterSlave(){}
+WholeBodyMasterSlaveChoreonoid::~WholeBodyMasterSlaveChoreonoid(){}
 
-RTC::ReturnCode_t WholeBodyMasterSlave::onInitialize(){
+RTC::ReturnCode_t WholeBodyMasterSlaveChoreonoid::onInitialize(){
     RTC_INFO_STREAM("onInitialize()");
     bindParameter("debugLevel", m_debugLevel, "0");
     addInPort("qRef", m_qRefIn);// from sh
@@ -66,8 +73,8 @@ RTC::ReturnCode_t WholeBodyMasterSlave::onInitialize(){
     addOutPort("delay_check_packet_outbound", m_delayCheckPacketOutboundOut);
     addInPort("exData", m_exDataIn);
     addInPort("exDataIndex", m_exDataIndexIn);
-    m_WholeBodyMasterSlaveServicePort.registerProvider("service0", "WholeBodyMasterSlaveService", m_service0);
-    addPort(m_WholeBodyMasterSlaveServicePort);
+    m_WholeBodyMasterSlaveChoreonoidServicePort.registerProvider("service0", "WholeBodyMasterSlaveChoreonoidService", m_service0);
+    addPort(m_WholeBodyMasterSlaveChoreonoidServicePort);
 
     m_AutoBalancerServicePort.registerConsumer("service0","AutoBalancerService", m_AutoBalancerServiceConsumer);
     m_StabilizerServicePort.registerConsumer("service0","StabilizerService", m_StabilizerServiceConsumer);
@@ -216,7 +223,7 @@ RTC::ReturnCode_t WholeBodyMasterSlave::onInitialize(){
     return RTC::RTC_OK;
 }
 
-RTC::ReturnCode_t WholeBodyMasterSlave::setupEEIKConstraintFromConf(std::map<std::string, IKConstraint>& _ee_ikc_map, hrp::BodyPtr _robot, RTC::Properties& _prop){
+RTC::ReturnCode_t WholeBodyMasterSlaveChoreonoid::setupEEIKConstraintFromConf(std::map<std::string, IKConstraint>& _ee_ikc_map, hrp::BodyPtr _robot, RTC::Properties& _prop){
     coil::vstring ee_conf_all = coil::split(_prop["end_effectors"], ",");
     size_t prop_num = 10; // limbname + linkname + basename + pos(3) + angleaxis(4)
     if (ee_conf_all.size() > 0) {
@@ -249,7 +256,7 @@ RTC::ReturnCode_t WholeBodyMasterSlave::setupEEIKConstraintFromConf(std::map<std
     return RTC::RTC_OK;
 }
 
-RTC::ReturnCode_t WholeBodyMasterSlave::onExecute(RTC::UniqueId ec_id){
+RTC::ReturnCode_t WholeBodyMasterSlaveChoreonoid::onExecute(RTC::UniqueId ec_id){
     if(DEBUGP_ONCE) RTC_INFO_STREAM("onExecute(" << ec_id << ")");
     time_report_str.clear();
     clock_gettime(CLOCK_REALTIME, &startT);
@@ -473,7 +480,7 @@ RTC::ReturnCode_t WholeBodyMasterSlave::onExecute(RTC::UniqueId ec_id){
 }
 
 
-void WholeBodyMasterSlave::processTransition(){
+void WholeBodyMasterSlaveChoreonoid::processTransition(){
     switch(mode.now()){
 
         case MODE_SYNC_TO_WBMS:
@@ -497,7 +504,7 @@ void WholeBodyMasterSlave::processTransition(){
 }
 
 
-void WholeBodyMasterSlave::preProcessForWholeBodyMasterSlave(){
+void WholeBodyMasterSlaveChoreonoid::preProcessForWholeBodyMasterSlave(){
     fik->m_robot->rootLink()->p = hrp::to_Vector3(m_basePos.data);
     hrp::setQAll(fik->m_robot, hrp::to_dvector(m_qRef.data));
     fik->m_robot->calcForwardKinematics();
@@ -513,7 +520,7 @@ void WholeBodyMasterSlave::preProcessForWholeBodyMasterSlave(){
 }
 
 
-void WholeBodyMasterSlave::solveFullbodyIK(HumanPose& ref){
+void WholeBodyMasterSlaveChoreonoid::solveFullbodyIK(HumanPose& ref){
     std::vector<IKConstraint> ikc_list;
     if(wbms->legged){ // free baselink, lleg, rleg, larm, rarm setting
         {
@@ -746,7 +753,7 @@ void WholeBodyMasterSlave::solveFullbodyIK(HumanPose& ref){
     int loop_result = fik->solveFullbodyIKLoop(ikc_list, IK_MAX_LOOP);
 }
 
-void WholeBodyMasterSlave::smoothingJointAngles(hrp::BodyPtr _robot, hrp::BodyPtr _robot_safe){
+void WholeBodyMasterSlaveChoreonoid::smoothingJointAngles(hrp::BodyPtr _robot, hrp::BodyPtr _robot_safe){
     double goal_time = 0.0;
     const double min_goal_time_offset = 0.3;
 
@@ -773,7 +780,7 @@ void WholeBodyMasterSlave::smoothingJointAngles(hrp::BodyPtr _robot, hrp::BodyPt
 }
 
 
-bool WholeBodyMasterSlave::startWholeBodyMasterSlave(){
+bool WholeBodyMasterSlaveChoreonoid::startWholeBodyMasterSlave(){
     if(mode.now() == MODE_IDLE){
         RTC_INFO_STREAM("startWholeBodyMasterSlave");
         mode.setNextMode(MODE_SYNC_TO_WBMS);
@@ -785,7 +792,7 @@ bool WholeBodyMasterSlave::startWholeBodyMasterSlave(){
 }
 
 
-bool WholeBodyMasterSlave::pauseWholeBodyMasterSlave(){
+bool WholeBodyMasterSlaveChoreonoid::pauseWholeBodyMasterSlave(){
     if(mode.now() == MODE_WBMS){
         RTC_INFO_STREAM("pauseWholeBodyMasterSlave");
         mode.setNextMode(MODE_PAUSE);
@@ -797,7 +804,7 @@ bool WholeBodyMasterSlave::pauseWholeBodyMasterSlave(){
 }
 
 
-bool WholeBodyMasterSlave::resumeWholeBodyMasterSlave(){
+bool WholeBodyMasterSlaveChoreonoid::resumeWholeBodyMasterSlave(){
     if(mode.now() == MODE_PAUSE){
         RTC_INFO_STREAM("resumeWholeBodyMasterSlave");
         mode.setNextMode(MODE_WBMS);
@@ -809,7 +816,7 @@ bool WholeBodyMasterSlave::resumeWholeBodyMasterSlave(){
 }
 
 
-bool WholeBodyMasterSlave::stopWholeBodyMasterSlave(){
+bool WholeBodyMasterSlaveChoreonoid::stopWholeBodyMasterSlave(){
     if(mode.now() == MODE_WBMS || mode.now() == MODE_PAUSE ){
         RTC_INFO_STREAM("stopWholeBodyMasterSlave");
         mode.setNextMode(MODE_SYNC_TO_IDLE);
@@ -820,19 +827,19 @@ bool WholeBodyMasterSlave::stopWholeBodyMasterSlave(){
     }
 }
 namespace hrp{
-//    hrp::Vector2 to_Vector2(const OpenHRP::WholeBodyMasterSlaveService::DblSequence2& in){ return (hrp::Vector2()<< in[0],in[1]).finished(); }
-//    hrp::Vector2 to_Vector3(const OpenHRP::WholeBodyMasterSlaveService::DblSequence3& in){ return hrp::dvector::Map(in.get_buffer(), in.length()); }
-//    hrp::Vector2 to_Vector4(const OpenHRP::WholeBodyMasterSlaveService::DblSequence4& in){ return (hrp::Vector4()<< in[0],in[1]).finished(); }
-    OpenHRP::WholeBodyMasterSlaveService::DblSequence2 to_DblSequence2(const hrp::Vector2& in){
-        OpenHRP::WholeBodyMasterSlaveService::DblSequence2 ret; ret.length(in.size()); hrp::Vector2::Map(ret.get_buffer()) = in; return ret; }
-    OpenHRP::WholeBodyMasterSlaveService::DblSequence3 to_DblSequence3(const hrp::Vector3& in){
-        OpenHRP::WholeBodyMasterSlaveService::DblSequence3 ret; ret.length(in.size()); hrp::Vector3::Map(ret.get_buffer()) = in; return ret; }
-    OpenHRP::WholeBodyMasterSlaveService::DblSequence4 to_DblSequence4(const hrp::Vector4& in){
-        OpenHRP::WholeBodyMasterSlaveService::DblSequence4 ret; ret.length(in.size()); hrp::Vector4::Map(ret.get_buffer()) = in; return ret; }
+//    hrp::Vector2 to_Vector2(const OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence2& in){ return (hrp::Vector2()<< in[0],in[1]).finished(); }
+//    hrp::Vector2 to_Vector3(const OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence3& in){ return hrp::dvector::Map(in.get_buffer(), in.length()); }
+//    hrp::Vector2 to_Vector4(const OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence4& in){ return (hrp::Vector4()<< in[0],in[1]).finished(); }
+    OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence2 to_DblSequence2(const hrp::Vector2& in){
+        OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence2 ret; ret.length(in.size()); hrp::Vector2::Map(ret.get_buffer()) = in; return ret; }
+    OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence3 to_DblSequence3(const hrp::Vector3& in){
+        OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence3 ret; ret.length(in.size()); hrp::Vector3::Map(ret.get_buffer()) = in; return ret; }
+    OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence4 to_DblSequence4(const hrp::Vector4& in){
+        OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence4 ret; ret.length(in.size()); hrp::Vector4::Map(ret.get_buffer()) = in; return ret; }
 }
 
-bool WholeBodyMasterSlave::setParams(const OpenHRP::WholeBodyMasterSlaveService::WholeBodyMasterSlaveParam& i_param){
-    RTC_INFO_STREAM("setWholeBodyMasterSlaveParam");
+bool WholeBodyMasterSlaveChoreonoid::setParams(const OpenHRP::WholeBodyMasterSlaveChoreonoidService::WholeBodyMasterSlaveChoreonoidParam& i_param){
+    RTC_INFO_STREAM("setWholeBodyMasterSlaveChoreonoidParam");
     wbms->wp.auto_com_mode                      = i_param.auto_com_mode;
     wbms->wp.auto_floor_h_mode                  = i_param.auto_floor_h_mode;
     wbms->wp.auto_foot_landing_by_act_cp        = i_param.auto_foot_landing_by_act_cp;
@@ -862,8 +869,8 @@ bool WholeBodyMasterSlave::setParams(const OpenHRP::WholeBodyMasterSlaveService:
 }
 
 
-bool WholeBodyMasterSlave::getParams(OpenHRP::WholeBodyMasterSlaveService::WholeBodyMasterSlaveParam& i_param){
-    RTC_INFO_STREAM("getWholeBodyMasterSlaveParam");
+bool WholeBodyMasterSlaveChoreonoid::getParams(OpenHRP::WholeBodyMasterSlaveChoreonoidService::WholeBodyMasterSlaveChoreonoidParam& i_param){
+    RTC_INFO_STREAM("getWholeBodyMasterSlaveChoreonoidParam");
     i_param.auto_com_mode                       = wbms->wp.auto_com_mode;
     i_param.auto_floor_h_mode                   = wbms->wp.auto_floor_h_mode;
     i_param.auto_foot_landing_by_act_cp         = wbms->wp.auto_foot_landing_by_act_cp;
@@ -892,13 +899,13 @@ bool WholeBodyMasterSlave::getParams(OpenHRP::WholeBodyMasterSlaveService::Whole
 }
 
 
-RTC::ReturnCode_t WholeBodyMasterSlave::onActivated(RTC::UniqueId ec_id){ RTC_INFO_STREAM("onActivated(" << ec_id << ")"); return RTC::RTC_OK; }
-RTC::ReturnCode_t WholeBodyMasterSlave::onDeactivated(RTC::UniqueId ec_id){ RTC_INFO_STREAM("onDeactivated(" << ec_id << ")"); return RTC::RTC_OK; }
-RTC::ReturnCode_t WholeBodyMasterSlave::onFinalize(){ return RTC::RTC_OK; }
+RTC::ReturnCode_t WholeBodyMasterSlaveChoreonoid::onActivated(RTC::UniqueId ec_id){ RTC_INFO_STREAM("onActivated(" << ec_id << ")"); return RTC::RTC_OK; }
+RTC::ReturnCode_t WholeBodyMasterSlaveChoreonoid::onDeactivated(RTC::UniqueId ec_id){ RTC_INFO_STREAM("onDeactivated(" << ec_id << ")"); return RTC::RTC_OK; }
+RTC::ReturnCode_t WholeBodyMasterSlaveChoreonoid::onFinalize(){ return RTC::RTC_OK; }
 
 extern "C"{
-    void WholeBodyMasterSlaveInit(RTC::Manager* manager) {
-        RTC::Properties profile(WholeBodyMasterSlave_spec);
-        manager->registerFactory(profile, RTC::Create<WholeBodyMasterSlave>, RTC::Delete<WholeBodyMasterSlave>);
+    void WholeBodyMasterSlaveChoreonoidInit(RTC::Manager* manager) {
+        RTC::Properties profile(WholeBodyMasterSlaveChoreonoid_spec);
+        manager->registerFactory(profile, RTC::Create<WholeBodyMasterSlaveChoreonoid>, RTC::Delete<WholeBodyMasterSlaveChoreonoid>);
     }
 };
