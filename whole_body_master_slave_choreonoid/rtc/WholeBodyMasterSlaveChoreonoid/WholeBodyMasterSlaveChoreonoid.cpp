@@ -1,7 +1,29 @@
 #include "WholeBodyMasterSlaveChoreonoid.h"
+#include <cnoid/BodyLoader>
+#include <cnoid/ForceSensor>
+#include <cnoid/AccelerationSensor>
+#include <cnoid/EigenUtil>
+#include <ik_constraint/PositionConstraint.h>
+#include <ik_constraint/COMConstraint.h>
+#include <ik_constraint/JointAngleConstraint.h>
 
 #define DEBUGP (loop%200==0)
 #define DEBUGP_ONCE (loop==0)
+
+static const char* WholeBodyMasterSlaveChoreonoid_spec[] = {
+  "implementation_id", "WholeBodyMasterSlaveChoreonoid",
+  "type_name",         "WholeBodyMasterSlaveChoreonoid",
+  "description",       "wholebodymasterslave component",
+  "version",           "0.0",
+  "vendor",            "Naoki-Hiraoka",
+  "category",          "example",
+  "activity_type",     "DataFlowComponent",
+  "max_instance",      "10",
+  "language",          "C++",
+  "lang_type",         "compile",
+  "conf.default.debugLevel", "0",
+  ""
+};
 
 inline std::vector<std::string> to_string_vector (const OpenHRP::WholeBodyMasterSlaveChoreonoidService::StrSequence& in) {
   std::vector<std::string> ret(in.length()); for(int i=0; i<in.length(); i++){ ret[i] = in[i]; } return ret;
@@ -10,499 +32,283 @@ inline OpenHRP::WholeBodyMasterSlaveChoreonoidService::StrSequence to_StrSequenc
   OpenHRP::WholeBodyMasterSlaveChoreonoidService::StrSequence ret; ret.length(in.size()); for(int i=0; i<in.size(); i++){ ret[i] = in[i].c_str(); } return ret;
 }
 
-static const char* WholeBodyMasterSlaveChoreonoid_spec[] = {
-        "implementation_id", "WholeBodyMasterSlaveChoreonoid",
-        "type_name",         "WholeBodyMasterSlaveChoreonoid",
-        "description",       "wholebodymasterslave component",
-        "version",           HRPSYS_PACKAGE_VERSION,
-        "vendor",            "AIST",
-        "category",          "example",
-        "activity_type",     "DataFlowComponent",
-        "max_instance",      "10",
-        "language",          "C++",
-        "lang_type",         "compile",
-        "conf.default.debugLevel", "0",
-        ""
-};
+WholeBodyMasterSlaveChoreonoid::Ports::Ports() :
+  m_qRefIn_("qRef", m_qRef_),// from sh
+  m_basePosRefIn_("basePosRefIn", m_basePosRef_),// from sh
+  m_baseRpyRefIn_("baseRpyRefIn", m_baseRpyRef_),// from sh
+  m_eeStateRefIn_("eeStateRefIn", m_eeStateRefIn_),
+
+  m_qActIn_("qAct", m_qAct_),
+  m_imuActIn_("imuAct", m_imuAct_),
+
+  m_qComOut_("qCom", m_qCom_),
+  m_basePosComOut_("basePosComOut", m_basePosCom_),
+  m_baseRpyComOut_("baseRpyComOut", m_baseRpyCom_),
+
+  m_eeStateActOut_("eeStateActOut", m_eeStateActOut_),
+
+  m_delayCheckPacketInboundIn("delay_check_packet_inbound", m_delayCheckPacket),
+  m_delayCheckPacketOutboundOut("delay_check_packet_outbound", m_delayCheckPacket),
+
+  m_WholeBodyMasterSlaveChoreonoidServicePort_("WholeBodyMasterSlaveChoreonoidService") {
+}
+
 
 WholeBodyMasterSlaveChoreonoid::WholeBodyMasterSlaveChoreonoid(RTC::Manager* manager) : RTC::DataFlowComponentBase(manager),
-    m_qRefIn("qRef", m_qRef),// from sh
-    m_qActIn("qAct", m_qAct),
-    m_zmpIn("zmpIn", m_zmp),
-    m_basePosIn("basePosIn", m_basePos),
-    m_baseRpyIn("baseRpyIn", m_baseRpy),
-    m_optionalDataIn("optionalData", m_optionalData),
-    m_qOut("q", m_qRef),// to abc
-    m_zmpOut("zmpOut", m_zmp),
-    m_basePosOut("basePosOut", m_basePos),
-    m_baseRpyOut("baseRpyOut", m_baseRpy),
-    m_optionalDataOut("optionalDataOut", m_optionalData),
-    m_actCPIn("actCapturePoint", m_actCP),
-    m_actZMPIn("zmp", m_actZMP),
-    m_exDataIn("exData", m_exData),
-    m_delayCheckPacketInboundIn("delay_check_packet_inbound", m_delayCheckPacket),
-    m_delayCheckPacketOutboundOut("delay_check_packet_outbound", m_delayCheckPacket),
-    m_exDataIndexIn("exDataIndex", m_exDataIndex),
-    m_WholeBodyMasterSlaveChoreonoidServicePort("WholeBodyMasterSlaveChoreonoidService"),
-    m_AutoBalancerServicePort("AutoBalancerService"),
-    m_StabilizerServicePort("StabilizerService"),
-    m_debugLevel(0)
+  ports_(),
+  m_debugLevel_(0)
 {
-    m_service0.wholebodymasterslave(this);
+  this->ports_.m_service0_.wholebodymasterslavechoreonoid(this);
 }
-
-WholeBodyMasterSlaveChoreonoid::~WholeBodyMasterSlaveChoreonoid(){}
 
 RTC::ReturnCode_t WholeBodyMasterSlaveChoreonoid::onInitialize(){
-    RTC_INFO_STREAM("onInitialize()");
-    bindParameter("debugLevel", m_debugLevel, "0");
-    addInPort("qRef", m_qRefIn);// from sh
-    addInPort("qAct", m_qActIn);
-    addInPort("zmpIn", m_zmpIn);
-    addInPort("basePosIn", m_basePosIn);
-    addInPort("baseRpyIn", m_baseRpyIn);
-    addInPort("optionalData", m_optionalDataIn);
-    addOutPort("q", m_qOut);// to abc
-    addOutPort("zmpOut", m_zmpOut);
-    addOutPort("basePosOut", m_basePosOut);
-    addOutPort("baseRpyOut", m_baseRpyOut);
-    addOutPort("optionalDataOut", m_optionalDataOut);
-    addInPort("actCapturePoint", m_actCPIn);
-    addInPort("zmp", m_actZMPIn);
-    addInPort("delay_check_packet_inbound", m_delayCheckPacketInboundIn);
-    addOutPort("delay_check_packet_outbound", m_delayCheckPacketOutboundOut);
-    addInPort("exData", m_exDataIn);
-    addInPort("exDataIndex", m_exDataIndexIn);
-    m_WholeBodyMasterSlaveChoreonoidServicePort.registerProvider("service0", "WholeBodyMasterSlaveChoreonoidService", m_service0);
-    addPort(m_WholeBodyMasterSlaveChoreonoidServicePort);
+  bindParameter("debugLevel", m_debugLevel_, "0");
 
-    m_AutoBalancerServicePort.registerConsumer("service0","AutoBalancerService", m_AutoBalancerServiceConsumer);
-    m_StabilizerServicePort.registerConsumer("service0","StabilizerService", m_StabilizerServiceConsumer);
-    addPort(m_AutoBalancerServicePort);
-    addPort(m_StabilizerServicePort);
+  addInPort("qRef", this->ports_.m_qRefIn_);// from sh
+  addInPort("basePosRef", this->ports_.m_basePosRefIn_);
+  addInPort("baseRpyRef", this->ports_.m_baseRpyRefIn_);
+  addInPort("eeStateRef", this->ports_.m_eeStateRefIn_);
+  addInPort("qAct", this->ports_.m_qActIn_);
+  addInPort("imuAct", this->ports_.m_imuActIn_);
+  addOutPort("qCom", this->ports_.m_qComOut_);
+  addOutPort("basePosCom", this->ports_.m_basePosComOut_);
+  addOutPort("baseRpyCom", this->ports_.m_baseRpyComOut_);
+  addOutPort("eeStateAct". this->ports_.m_eeStateActOut_);
+  addInPort("delay_check_packet_inbound", this->ports_.m_delayCheckPacketInboundIn_);
+  addOutPort("delay_check_packet_outbound", this->ports_.m_delayCheckPacketOutboundOut_);
+  this->ports_.m_WholeBodyMasterSlaveChoreonoidServicePort_.registerProvider("service0", "WholeBodyMasterSlaveChoreonoidService", this->ports_.m_service0_);
+  addPort(this->ports_.m_WholeBodyMasterSlaveChoreonoidServicePort_);
 
-    RTC::Properties& prop =  getProperties();
-    coil::stringTo(m_dt, prop["dt"].c_str());
-    RTC::Manager& rtcManager = RTC::Manager::instance();
-    std::string nameServer = rtcManager.getConfig()["corba.nameservers"];
-    int comPos = nameServer.find(",");
-    if (comPos < 0){ comPos = nameServer.length(); }
-    nameServer = nameServer.substr(0, comPos);
-    RTC::CorbaNaming naming(rtcManager.getORB(), nameServer.c_str());
+  RTC::Properties& prop = getProperties();
+  coil::stringTo(this->m_dt_, prop["dt"].c_str());
 
-    hrp::BodyPtr robot_for_ik = hrp::BodyPtr(new hrp::Body());
-    if (!loadBodyFromModelLoader(robot_for_ik, prop["model"].c_str(), CosNaming::NamingContext::_duplicate(naming.getRootContext()) )){
-        RTC_WARN_STREAM("failed to load model[" << prop["model"] << "]");
-        return RTC::RTC_ERROR;
-    }
-    m_robot_act = hrp::BodyPtr(new hrp::Body(*robot_for_ik)); //copy
-    m_robot_vsafe = hrp::BodyPtr(new hrp::Body(*robot_for_ik)); //copy
-    RTC_INFO_STREAM("setup robot model finished");
+  cnoid::BodyLoader bodyLoader;
+  cnoid::BodyPtr robot = bodyLoader.load(prop["model"]);
+  if(!robot){
+    RTC_WARN_STREAM("failed to load model[" << prop["model"] << "]");
+    return RTC::RTC_ERROR;
+  }
+  this->m_robot_ref_ = robot;
+  this->m_robot_act_ = robot->clone();
+  this->m_robot_com_ = robot->clone();
 
-    fik = fikPtr(new FullbodyInverseKinematicsSolver(robot_for_ik, std::string(m_profile.instance_name), m_dt));
-    setupEEIKConstraintFromConf(ee_ikc_map, robot_for_ik, prop);
-    RTC_INFO_STREAM("setup fullbody ik finished");
+  cnoid::DeviceList<cnoid::ForceSensor> forceSensors(robot->devices());
+  for(size_t i=0;i<forceSensors.size();i++){
+    this->ports_.m_fsensorActIn_[forceSensors[i]->name()] = std::make_shared<RTC::InPort <RTC::TimedDoubleSeq> > >((forceSensors[i]+"In").c_str(), m_fsensorAct_[forceSensors[i]->name()]);
+  }
 
-    wbms = boost::shared_ptr<WBMSCore>(new WBMSCore(m_dt));
-    if(fik->m_robot->name() == "RHP4B"){
-        for(int i=0; i<fik->m_robot->numJoints(); i++){
-            if(fik->m_robot->joint(i)->name.find("-linear-joint") == std::string::npos){
-                wbms->wp.use_joints.push_back(fik->m_robot->joint(i)->name);
-            }
-        }
-    }else{
-        wbms->wp.use_joints = getJointNameAll(fik->m_robot);
-    }
+  RTC_INFO_STREAM("setup fullbody ik finished");
 
-    if(fik->m_robot->name().find("JAXON") != std::string::npos){ // for demo
-        wbms->wp.use_targets.push_back("rleg");
-        wbms->wp.use_targets.push_back("lleg");
-        wbms->wp.use_targets.push_back("rarm");
-        wbms->wp.use_targets.push_back("larm");
-        wbms->wp.use_targets.push_back("com");
-        wbms->wp.use_targets.push_back("head");
-    }else{
-        wbms->wp.use_targets.push_back("rleg");
-        wbms->wp.use_targets.push_back("lleg");
-        wbms->wp.use_targets.push_back("rarm");
-        wbms->wp.use_targets.push_back("larm");
-        wbms->wp.use_targets.push_back("com");
-        wbms->wp.use_targets.push_back("head");
-    }
-    wbms->legged = ( has(ee_names,"lleg") || has(ee_names,"rleg") );
-    RTC_INFO_STREAM("setup mode as legged robot ? = " << wbms->legged);
+  wbms = boost::shared_ptr<WBMSCore>(new WBMSCore(m_dt));
+  for(size_t i=0;i<this->robot_for_ik_->numJoints();i++){
+    wbms->wp.use_joints.push_back(this->robot_for_ik_->joint(i)->name());
+  }
 
-    for (int st; st<robot_for_ik->numSensorTypes(); st++){
-        RTC_INFO_STREAM("SensorType : "<<st);
-        for (int s; s<robot_for_ik->numSensors(st); s++){
-            RTC_INFO_STREAM("Sensor id : "<<s);
-            robot_for_ik->sensor(st,s)->putInformation(std::cerr);
-        }
-    }
-    
-    sccp = boost::shared_ptr<CapsuleCollisionChecker>(new CapsuleCollisionChecker(fik->m_robot));
-    RTC_INFO_STREAM("setup main function class finished");
+  //TODO
+  //sccp = boost::shared_ptr<CapsuleCollisionChecker>(new CapsuleCollisionChecker(fik->m_robot));
 
-    // allocate memory for outPorts
-    m_qRef.data.length(fik->m_robot->numJoints()); // is really needed?
-    if(prop["seq_optional_data_dim"].empty()){
-        RTC_WARN_STREAM("No seq_optional_data_dim is set ! Exit !!!");
-        return RTC::RTC_ERROR;
-    }
-    coil::stringTo(optionalDataLength, prop["seq_optional_data_dim"].c_str());
+  this->outputRatioInterpolator_ = std::make_shared<cpp_filters::TwoPointInterpolator<double> >(0.0,cpp_filters::TwoPointInterpolator<double>::HOFFARBIB);
 
-    output_ratio = 0.0;
-    t_ip = new interpolator(1, m_dt, interpolator::HOFFARBIB, 1);
-    t_ip->clear();
-    t_ip->set(&output_ratio);
-    q_ip = new interpolator(fik->numStates(), m_dt, interpolator::CUBICSPLINE, 1); // or HOFFARBIB, QUINTICSPLINE
-    q_ip->clear();
-    if(fik->m_robot->name().find("JAXON") != std::string::npos){
-        avg_q_vel = hrp::dvector::Constant(fik->numStates(), 1.0);
-        avg_q_vel.head(12).fill(4.0); // leg
-    }else{
-        avg_q_vel = hrp::dvector::Constant(fik->numStates(), 1.0); // all joint max avarage vel = 1.0 rad/s
-    }
-    if(!wbms->legged){ avg_q_vel = hrp::dvector::Constant(fik->numStates(), 10.0); } // rapid manip 
-    avg_q_acc = hrp::dvector::Constant(fik->numStates(), 16.0); // all joint max avarage acc = 16.0 rad/s^2
-    avg_q_vel.tail(6).fill(std::numeric_limits<double>::max()); // no limit for base link vel
-    avg_q_acc.tail(6).fill(std::numeric_limits<double>::max()); // no limit for base link acc
-    RTC_INFO_STREAM("setup interpolator finished");
+  this->outputSmoothingInterpolator_ = std::make_shared<cpp_filters::TwoPointInterpolator<cnoid::VectorX> >(cnoid::VectorX::Zero(robot->numJoints()),cpp_filters::TwoPointInterpolator<double>::CUBICSPLINE); // or HOFFARBIB, QUINTICSPLINE
+  this->avg_q_vel_ = cnoid::VectorX::Constant(robot->numJoints(),4.0);// 1.0だと安全.4.0は脚.10.0はlapid manipulation らしい
+  this->avg_q_acc_ = hrp::dvector::Constant(robot->numJoints(), 16.0); // all joint max avarage acc = 16.0 rad/s^2
 
-    ref_zmp_filter.resize(XYZ);
-    ref_zmp_filter.setParameter(100, 1/m_dt, Q_BUTTERWORTH);
+  this->staticBalancingCOMOffsetFilter_.setParameterAsBiquad(1, 0.707106781, 1/m_dt, cnoid::Vector3::Zero());// 1/sqrt(2) = Butterworth
 
-    tgt_names = ee_names;
-    tgt_names.push_back("com");
-    tgt_names.push_back("head");
-    tgt_names.push_back("rhand");
-    tgt_names.push_back("lhand");
-    tgt_names.push_back("rfloor");
-    tgt_names.push_back("lfloor");
-
-    for (auto ee : ee_names) {
-        const std::string n = "slave_"+ee+"_wrench";
-        m_slaveEEWrenchesOut[ee] = OTDS_Ptr(new RTC::OutPort<RTC::TimedDoubleSeq>(n.c_str(), m_slaveEEWrenches[ee]));
-        registerOutPort(n.c_str(), *m_slaveEEWrenchesOut[ee]);
-        RTC_INFO_STREAM(" registerOutPort " << n);
-    }
-    for (auto ee : ee_names) {
-        const std::string n = "master_"+ee+"_wrench";
-        m_masterEEWrenchesIn[ee] = ITDS_Ptr(new RTC::InPort<RTC::TimedDoubleSeq>(n.c_str(), m_masterEEWrenches[ee]));
-        registerInPort(n.c_str(), *m_masterEEWrenchesIn[ee]);
-        RTC_INFO_STREAM(" registerInPort " << n);
-    }
-    ///////////////////
-    for (auto tgt : tgt_names) {
-        const std::string n = "master_"+tgt+"_pose";
-        m_masterTgtPosesIn[tgt] = ITP3_Ptr(new RTC::InPort<RTC::TimedPose3D>(n.c_str(), m_masterTgtPoses[tgt]));
-        registerInPort(n.c_str(), *m_masterTgtPosesIn[tgt]);
-        RTC_INFO_STREAM(" registerInPort " << n);
-    }
-    for (auto tgt : tgt_names) {
-        const std::string n = "slave_"+tgt+"_pose";
-        m_slaveTgtPosesOut[tgt] = OTP3_Ptr(new RTC::OutPort<RTC::TimedPose3D>(n.c_str(), m_slaveTgtPoses[tgt]));
-        registerOutPort(n.c_str(), *m_slaveTgtPosesOut[tgt]);
-        RTC_INFO_STREAM(" registerOutPort " << n);
-    }
-    //////////////
-    for (auto ee : ee_names) {
-        const std::string n = "local_"+ee+"_wrench";
-        m_localEEWrenchesIn[ee] = ITDS_Ptr(new RTC::InPort<RTC::TimedDoubleSeq>(n.c_str(), m_localEEWrenches[ee]));
-        registerInPort(n.c_str(), *m_localEEWrenchesIn[ee]);
-        RTC_INFO_STREAM(" registerInPort " << n);
-    }
-
-    for(auto ee : ee_names){
-        ee_f_filter[ee].resize(XYZ);
-        ee_f_filter[ee].setParameter(1, 1/m_dt, Q_BUTTERWORTH);
-    }
-
-    RTC_INFO_STREAM("onInitialize() OK");
-    loop = 0;
-    return RTC::RTC_OK;
+  loop = 0;
+  return RTC::RTC_OK;
 }
 
-RTC::ReturnCode_t WholeBodyMasterSlaveChoreonoid::setupEEIKConstraintFromConf(std::map<std::string, IKConstraint>& _ee_ikc_map, hrp::BodyPtr _robot, RTC::Properties& _prop){
-    coil::vstring ee_conf_all = coil::split(_prop["end_effectors"], ",");
-    size_t prop_num = 10; // limbname + linkname + basename + pos(3) + angleaxis(4)
-    if (ee_conf_all.size() > 0) {
-        size_t ee_num = ee_conf_all.size()/prop_num;
-        for (size_t i = 0; i < ee_num; i++) {
-            std::string ee_name, target_link_name, base_name; // e.g. rleg, RLEG_JOINT5, WAIST
-            coil::stringTo(ee_name,             ee_conf_all[i*prop_num].c_str());
-            coil::stringTo(target_link_name,    ee_conf_all[i*prop_num+1].c_str());
-            coil::stringTo(base_name,           ee_conf_all[i*prop_num+2].c_str());
-            ee_names.push_back(ee_name);
-            _ee_ikc_map[ee_name].target_link_name = target_link_name;
-            for (size_t j = 0; j < XYZ; j++){ coil::stringTo(_ee_ikc_map[ee_name].localPos(j), ee_conf_all[i*prop_num+3+j].c_str()); }
-            double tmp_aa[4];
-            for (int j = 0; j < 4; j++ ){ coil::stringTo(tmp_aa[j], ee_conf_all[i*prop_num+6+j].c_str()); }
-            _ee_ikc_map[ee_name].localR = Eigen::AngleAxis<double>(tmp_aa[3], hrp::Vector3(tmp_aa[0], tmp_aa[1], tmp_aa[2])).toRotationMatrix(); // rotation in VRML is represented by axis + angle
-            if(_robot->link(target_link_name)){
-                RTC_INFO_STREAM("End Effector [" << ee_name << "]");
-                RTC_INFO_STREAM("   target_link_name = " << _ee_ikc_map[ee_name].target_link_name << ", base = " << base_name);
-                RTC_INFO_STREAM("   offset_pos = " << _ee_ikc_map[ee_name].localPos.transpose() << "[m]");
-                RTC_INFO_STREAM("   has_toe_joint = " << "fix to false now");
-            }else{
-                RTC_WARN_STREAM("Target link [" << target_link_name << "] not found !");
-                for (int i; i<_robot->numJoints(); i++){    RTC_WARN_STREAM( i << " : " << _robot->joint(i)->name); }
-                for (int i; i<_robot->numLinks(); i++){     RTC_WARN_STREAM( i << " : " << _robot->link(i)->name); }
-                return RTC::RTC_ERROR;
-            }
-            contact_states_index_map.insert(std::pair<std::string, size_t>(ee_name, i));////TODO:要移動? //used for check optional data order
-        }
+void readPorts(WholeBodyMasterSlaveChoreonoid::Ports& port) {
+  if(port.m_qRefIn_.isNew()) port.m_qRefIn_.read();
+  if(port.m_basePosRefIn_.isNew()) port.m_basePosRefIn_.read();
+  if(port.m_baseRpyRefIn_.isNew()) port.m_baseRpyRefIn_.read();
+  if(port.m_eeStateRefIn_.isNew()) port.m_eeStateRefIn_.read();
+  if(port.m_qActIn_.isNew()) port.m_qActIn_.read();
+  if(port.m_imuActIn_.isNew()) port.m_imuActIn_.read();
+  for(std::map<std::string, std::shared_ptr<RTC::InPort <RTC::TimedDoubleSeq> > >::Iterator it = port.m_fsensorActIn_.begin(); it != port.m_fsensorActIn_.end(); it++) {
+    if(it->second->isNew()) it->second->read();
+  }
+  if(port.m_delayCheckPacketInboundIn_.isNew()){
+    port.m_delayCheckPacketInboundIn_.read();
+    port.m_delayCheckPacketOutboundOut_.write();
+  }
+}
+
+// calc reference state (without ee. q, basepos and baserpy only)
+void calcReferenceRobot(cnoid::BodyPtr& robot, const WholeBodyMasterSlaveChoreonoid::Ports& port) {
+  if(port.m_qRef_.length() == robot->numJoints()){
+    for ( int i = 0; i < robot->numJoints(); i++ ){
+      robot->joint(i)->q() = port.m_qRef_.data[i];
     }
-    return RTC::RTC_OK;
+  }
+  robot->p()[0] = port.m_basePosRef_.data.x;
+  robot->p()[1] = port.m_basePosRef_.data.y;
+  robot->p()[2] = port.m_basePosRef_.data.z;
+  robot->rootLink()->R() = cnoid::rotFromRpy(port.m_baseRpyRef_.data.r, port.m_baseRpyRef_.data.p, port.m_baseRpyRef_.data.y);
+  robot->calcForwardKinematics();
+}
+
+// calc actial state from inport
+void calcActualRobot(cnoid::BodyPtr& robot, const WholeBodyMasterSlaveChoreonoid::Ports& port) {
+  if(port.m_qAct_.length() == robot->numJoints()){
+    for ( int i = 0; i < robot->numJoints(); i++ ){
+      robot->joint(i)->q() = port.m_qAct_.data[i];
+    }
+    robot->calcForwardKinematics();
+
+    cnoid::AccelerationSensorPtr imu = robot->findDevice<cnoid::AccelerationSensor>("gyrometer");
+    cnoid::Matrix3 imuR = imu->link()->R() * imu->R_local();
+    cnoid::Matrix3 actR = cnoid::rotFromRpy(port.m_imuAct_.data.r, port.m_imuAct_.data.p, port.m_imuAct_.data.y);
+    robot->rootLink()->R = actR * (imuR.transpose() * robot->rootLink()->R());
+    robot->calcForwardKinematics();
+  }
+}
+
+// 支持脚以外のエンドエフェクタの受けている力に釣り合う重心位置のオフセットを求める
+cnoid::Vector3 calcStaticBalancingCOMOffset(){
+  // for(auto ee : {"larm","rarm"}){
+  //   const hrp::Vector3 use_f = hrp::Vector3::UnitZ() * m_slaveEEWrenches[ee].data[Z];
+  //   hrp::Vector3 use_f_filtered = ee_f_filter[ee].passFilter(use_f);
+  //   const hrp::Vector3 ee_pos_from_com = ee_ikc_map[ee].getCurrentTargetPos(m_robot_vsafe) - wbms->rp_ref_out.tgt[com].abs.p;
+  //   static_balancing_com_offset.head(XY) += - ee_pos_from_com.head(XY) * use_f_filtered(Z) / (-m_robot_vsafe->totalMass() * G);
+  // }
+
+  return cnoid::Vector3::Zero(); //TODO
+}
+
+void processTransition(WholeBodyMasterSlaveChoreonoid::ControlMode& mode, std::shared_ptr<cpp_filters::TwoPointInterpolator<double> >& outputRatioInterpolator, double dt){
+  double tmp;
+  switch(mode.now()){
+  case WholeBodyMasterSlaveChoreonoid::ControlMode::MODE_SYNC_TO_WBMS:
+    if(mode.pre() == WholeBodyMasterSlaveChoreonoid::ControlMode::MODE_IDLE){
+      outputRatioInterpolator->setGoal(1.0, 3.0);
+    }
+    if (!outputRatioInterpolator->isEmpty() ){
+      outputRatioInterpolator->get(&tmp, dt);
+    }else{
+      mode.setNextMode(WholeBodyMasterSlaveChoreonoid::ControlMode::MODE_WBMS);
+    }
+    break;
+  case WholeBodyMasterSlaveChoreonoid::ControlMode::MODE_SYNC_TO_IDLE:
+    if(mode.pre() == WholeBodyMasterSlaveChoreonoid::ControlMode::MODE_WBMS ||
+       mode.pre() == WholeBodyMasterSlaveChoreonoid::ControlMode::MODE_PAUSE){
+      outputRatioInterpolator->setGoal(0.0, 3.0, true);
+    }
+    if (outputRatioInterpolator->isEmpty()) {
+      outputRatioInterpolator->get(&tmp, dt);
+    }else{
+      mode.setNextMode(WholeBodyMasterSlaveChoreonoid::ControlMode::MODE_IDLE);
+    }
+    break;
+  }
+  mode.update();
+}
+
+void calcOutputPorts(WholeBodyMasterSlaveChoreonoid::Ports& port, double output_ratio, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_com) {
+  // qCom
+  if (port.m_qRef_.data.length() == robot_com->numJoints()){
+    port.m_qCom_.data.length(robot_com->numJoints());
+    for (int i = 0; i < robot_com->numJoints(); i++ ){
+      port.m_qCom_.data[i] = output_ratio * robot_com->joint(i)->q() + (1 - output_ratio) * robot_ref->joint(i)->q();
+    }
+    port.m_qCom.tm = port.m_qRef.tm;
+    port.m_qComOut_.write();
+  }
+  // basePos
+  cnoid::Vector3 ouputBasePos = output_ratio * robot_com->rootLink()->p() + (1 - output_ratio) * robot_ref->rootLink()->p();
+  port.m_basePosCom_.data.x = ouputBasePos[0];
+  port.m_basePosCom_.data.y = ouputBasePos[1];
+  port.m_basePosCom_.data.z = ouputBasePos[2];
+  m_basePosCom.tm = m_qRef.tm;
+  m_basePosComOut_.write();
+  // baseRpy
+  cnoid::Vector3 outputBaseRpy = cnoid::rpyFromRot(cnoid::Quaterniond(robot_ref->rootLink()->R()).slerp(output_ratio, robot_com->rootLink()->R()));
+  port.m_baseRpyCom_.data.r = outputBaseRpy[0];
+  port.m_baseRpyCom_.data.p = outputBaseRpy[1];
+  port.m_baseRpyCom_.data.y = outputBaseRpy[2];
+  port.m_baseRpyCom_.tm = m_qRef.tm;
+  port.m_baseRpyComOut_.write();
+  // eestate TODO
+  port.m_eeStateAct_.tm = m_qRef.tm;
+  port.m_eeStateActOut_.write();
 }
 
 RTC::ReturnCode_t WholeBodyMasterSlaveChoreonoid::onExecute(RTC::UniqueId ec_id){
-    if(DEBUGP_ONCE) RTC_INFO_STREAM("onExecute(" << ec_id << ")");
-    time_report_str.clear();
-    clock_gettime(CLOCK_REALTIME, &startT);
-    if(m_qRefIn.isNew()                     ){ m_qRefIn.read(); }
-    if(m_qActIn.isNew()                     ){ m_qActIn.read(); }
-    if(m_basePosIn.isNew()                  ){ m_basePosIn.read(); }
-    if(m_baseRpyIn.isNew()                  ){ m_baseRpyIn.read(); }
-    if(m_zmpIn.isNew()                      ){ m_zmpIn.read(); }
-    if(m_optionalDataIn.isNew()             ){ m_optionalDataIn.read(); }
-    if(m_delayCheckPacketInboundIn.isNew()  ){ m_delayCheckPacketInboundIn.read(); m_delayCheckPacketOutboundOut.write();}
-    for (auto ee : ee_names) {
-        if(m_localEEWrenchesIn[ee]->isNew()){ m_localEEWrenchesIn[ee]->read(); }
+
+  time_report_str.clear();
+  clock_gettime(CLOCK_REALTIME, &startT);
+
+  // read ports
+  readPorts(this->port_);
+
+  // calc reference state from inport (without ee. q, basepos and baserpy only)
+  calcReferenceRobot(this->m_robot_ref_, this->port_);
+
+  // calc actial state from inport
+  calcActualRobot(this->m_robot_act_, this->port_);
+
+  // calc static balancing com offset
+  cnoid::Vector3 staticBalancingCOMOffset = calcStaticBalancingCOMOffset();
+  staticBalancingCOMOffset = this->staticBalancingCOMOffsetFilter_.passFilter(staticBalancingCOMOffset);
+
+  // wbms->act_rs.act_foot_wrench[0] = hrp::to_dvector(m_localEEWrenches["rleg"].data);
+  // wbms->act_rs.act_foot_wrench[1] = hrp::to_dvector(m_localEEWrenches["lleg"].data);
+  // wbms->act_rs.act_foot_pose[0] = ee_ikc_map["rleg"].getCurrentTargetPose(m_robot_vsafe);
+  // wbms->act_rs.act_foot_pose[1] = ee_ikc_map["lleg"].getCurrentTargetPose(m_robot_vsafe);
+
+  //   for(auto ee : ee_names){
+  //       hrp::ForceSensor* sensor = m_robot_act->sensor<hrp::ForceSensor>(to_sname[ee]);
+  //       hrp::dvector6 w_ee_wld = hrp::dvector6::Zero();
+  //       if(sensor){
+  //           hrp::Matrix33 sensorR_wld = sensor->link->R * sensor->localR;
+  //           hrp::Matrix33 sensorR_from_base = m_robot_act->rootLink()->R.transpose() * sensorR_wld;
+  //           const hrp::Vector3 f_sensor_wld = sensorR_from_base * hrp::to_dvector(m_localEEWrenches[ee].data).head(3);
+  //           const hrp::Vector3 t_sensor_wld = sensorR_from_base * hrp::to_dvector(m_localEEWrenches[ee].data).tail(3);
+  //           const hrp::Vector3 sensor_to_ee_vec_wld = ee_ikc_map[ee].getCurrentTargetPos(m_robot_act) - sensor->link->p;
+  //           w_ee_wld << f_sensor_wld, t_sensor_wld - sensor_to_ee_vec_wld.cross(f_sensor_wld);
+  //       }
+  //   }
+
+  addTimeReport("InPort");
+
+  // mode遷移を実行
+  processTransition(this->mode_, this->outputRatioInterpolator_, this->m_dt_);
+
+  if(this->mode_.isRunning()) {
+    if(this->mode_.mode.isInitialize()){
+      preProcessForWholeBodyMasterSlave();
     }
-    if(wbms->legged){
-        wbms->act_rs.act_foot_wrench[0] = hrp::to_dvector(m_localEEWrenches["rleg"].data);
-        wbms->act_rs.act_foot_wrench[1] = hrp::to_dvector(m_localEEWrenches["lleg"].data);
-        wbms->act_rs.act_foot_pose[0] = ee_ikc_map["rleg"].getCurrentTargetPose(m_robot_vsafe);
-        wbms->act_rs.act_foot_pose[1] = ee_ikc_map["lleg"].getCurrentTargetPose(m_robot_vsafe);
+    wbms->update();//////HumanSynchronizerの主要処理
+    if(DEBUGP)RTC_INFO_STREAM(wbms->rp_ref_out);
+    addTimeReport("MainFunc");
+
+    solveFullbodyIK(wbms->rp_ref_out);
+    addTimeReport("IK");
+
+    smoothingJointAngles(fik->m_robot, m_robot_vsafe);
+  } else {
+    // robot_refがそのままrobot_comになる
+    this->m_robot_com_->rootLink()->T() = this->m_robot_ref_->rootLink()->T();
+    for(size_t i=0;i<this->m_robot_ref_->numJoints();i++){
+      this->m_robot_com_->joint(i)->q() = this->m_robot_ref_->joint(i)->q();
     }
-    // calc actual state
-    std::map<std::string, std::string> to_sname{{"lleg", "lfsensor"}, {"rleg", "rfsensor"}, {"larm", "lhsensor"}, {"rarm", "rhsensor"}};
-    hrp::setQAll(m_robot_act, hrp::to_dvector(m_qAct.data));
-    m_robot_act->rootLink()->p = m_robot_vsafe->rootLink()->p;
-    m_robot_act->rootLink()->R = m_robot_vsafe->rootLink()->R;
-    m_robot_act->calcForwardKinematics();
-    for(auto ee : ee_names){
-        hrp::ForceSensor* sensor = m_robot_act->sensor<hrp::ForceSensor>(to_sname[ee]);
-        hrp::dvector6 w_ee_wld = hrp::dvector6::Zero();
-        if(sensor){
-            hrp::Matrix33 sensorR_wld = sensor->link->R * sensor->localR;
-            hrp::Matrix33 sensorR_from_base = m_robot_act->rootLink()->R.transpose() * sensorR_wld;
-            const hrp::Vector3 f_sensor_wld = sensorR_from_base * hrp::to_dvector(m_localEEWrenches[ee].data).head(3);
-            const hrp::Vector3 t_sensor_wld = sensorR_from_base * hrp::to_dvector(m_localEEWrenches[ee].data).tail(3);
-            const hrp::Vector3 sensor_to_ee_vec_wld = ee_ikc_map[ee].getCurrentTargetPos(m_robot_act) - sensor->link->p;
-            w_ee_wld << f_sensor_wld, t_sensor_wld - sensor_to_ee_vec_wld.cross(f_sensor_wld);
-        }
-        m_slaveEEWrenches[ee].data = hrp::to_DoubleSeq( w_ee_wld );
-        m_slaveEEWrenches[ee].tm = m_qRef.tm;
-        m_slaveEEWrenchesOut[ee]->write();
-        m_slaveTgtPoses[ee].data = hrp::to_Pose3D(ee_ikc_map[ee].getCurrentTargetPose(m_robot_act));
-        m_slaveTgtPoses[ee].tm = m_qRef.tm;
-        m_slaveTgtPosesOut[ee]->write();
-    }
-    m_slaveTgtPoses["com"].data = hrp::to_Pose3D( (hrp::dvector6()<<m_robot_act->calcCM(),0,0,0).finished());
-    m_slaveTgtPoses["com"].tm = m_qRef.tm;
-    m_slaveTgtPosesOut["com"]->write();
+    this->m_robot_com_->calcForwardKinematics();
+  }
+  wbms->baselinkpose.p = fik->m_robot->rootLink()->p;
+  wbms->baselinkpose.R = fik->m_robot->rootLink()->R;
 
-    static_balancing_com_offset.fill(0);
-    for(auto ee : {"larm","rarm"}){
-        const hrp::Vector3 use_f = hrp::Vector3::UnitZ() * m_slaveEEWrenches[ee].data[Z];
-        hrp::Vector3 use_f_filtered = ee_f_filter[ee].passFilter(use_f);
-        const hrp::Vector3 ee_pos_from_com = ee_ikc_map[ee].getCurrentTargetPos(m_robot_vsafe) - wbms->rp_ref_out.tgt[com].abs.p;
-        static_balancing_com_offset.head(XY) += - ee_pos_from_com.head(XY) * use_f_filtered(Z) / (-m_robot_vsafe->totalMass() * G);
-    }
-    if(loop%500==0)dbgv(static_balancing_com_offset);
+  // write outport
+  double output_ratio; this->outputRatioInterpolator_->get(output_ratio);
+  calcOutputPorts(this->port_, output_ratio, this->m_robot_ref_, this->m_robot_com_);
+  addTimeReport("OutPort");
 
-    // button func
-    hrp::dvector ex_data;
-    std::vector<std::string> ex_data_index;
-    if(m_exDataIn.isNew()){
-        m_exDataIn.read();
-        ex_data = hrp::to_dvector(m_exData.data);
-    }
-    if(m_exDataIndexIn.isNew()){
-        m_exDataIndexIn.read();
-        ex_data_index = hrp::to_string_vector(m_exDataIndex.data);
-    }
+  if(DEBUGP)RTC_INFO_STREAM(time_report_str);
+  if(DEBUGP)RTC_INFO_STREAM(wbms->ws);
 
-    if( mode.now() != MODE_PAUSE ){ // stop updating input when MODE_PAUSE
-        for (auto tgt : tgt_names){
-            if (m_masterTgtPosesIn[tgt]->isNew()){
-                m_masterTgtPosesIn[tgt]->read();
-                if(tgt == "lhand" || tgt == "rhand" || tgt == "lfloor" || tgt == "rfloor" ){
-                    // nothing
-                }else{
-                    wbms->hp_wld_raw.stgt(tgt).abs = hrp::to_Pose3(m_masterTgtPoses[tgt].data);
-                }
-            }
-        }
-        for (auto ee : ee_names){
-            if (m_masterEEWrenchesIn[ee]->isNew()){
-                m_masterEEWrenchesIn[ee]->read();
-                wbms->hp_wld_raw.stgt(ee).w = hrp::to_dvector(m_masterEEWrenches[ee].data);
-            }
-        }
-        if (m_actCPIn.isNew()){     m_actCPIn.read();   rel_act_cp  = hrp::to_Vector3(m_actCP.data);}
-        if (m_actZMPIn.isNew()){    m_actZMPIn.read();  rel_act_zmp = hrp::to_Vector3(m_actZMP.data);}
-    }else{
-        for (auto tgt : {"lhand", "rhand"}){ // PAUSE中もボタン読み込みのためにこれらだけは更新・・・
-            if (m_masterTgtPosesIn[tgt]->isNew()){ m_masterTgtPosesIn[tgt]->read(); }
-        }
-    }
-    addTimeReport("InPort");
-
-    ///// Button start
-    static int button1_flag_count = 0, button2_flag_count = 0;
-    if(m_masterTgtPoses["rhand"].data.position.x > 0 && m_masterTgtPoses["lhand"].data.position.x > 0  ){ button1_flag_count++; }else{ button1_flag_count = 0; }
-    if(m_masterTgtPoses["rhand"].data.position.x > 0 && m_masterTgtPoses["lhand"].data.position.x <= 0 ){ button2_flag_count++; }else{ button2_flag_count = 0; }
-    if(button1_flag_count > 2.0 / m_dt){// keep pless both button for 2s to start
-        if(mode.now() == MODE_IDLE){
-            RTC_INFO_STREAM("startWholeBodyMasterSlave by Button");
-            startWholeBodyMasterSlave();
-        }
-        if(mode.now() == MODE_WBMS || mode.now() == MODE_PAUSE ){
-            RTC_INFO_STREAM("stopWholeBodyMasterSlave by Button");
-            stopWholeBodyMasterSlave();
-        }
-        button1_flag_count = 0;
-    }
-    if(button2_flag_count > 2.0 / m_dt){// keep pless both button for 2s to start
-        if(mode.now() == MODE_WBMS){
-            RTC_INFO_STREAM("pauseWholeBodyMasterSlave by Button");
-            pauseWholeBodyMasterSlave();
-        }
-        if(mode.now() == MODE_PAUSE ){
-            RTC_INFO_STREAM("resumeWholeBodyMasterSlave by Button");
-            resumeWholeBodyMasterSlave();
-        }
-        button2_flag_count = 0;
-    }
-
-    processTransition();
-    mode.update();
-
-    if (mode.isRunning()) {
-        if(mode.isInitialize()){
-            preProcessForWholeBodyMasterSlave();
-            idsb.setInitState(fik->m_robot, m_dt);//逆動力学初期化
-        }
-        wbms->update();//////HumanSynchronizerの主要処理
-        if(DEBUGP)RTC_INFO_STREAM(wbms->rp_ref_out);
-        addTimeReport("MainFunc");
-
-        solveFullbodyIK(wbms->rp_ref_out);
-        addTimeReport("IK");
-
-        // RHP finger
-        if(fik->m_robot->name() == "RHP4B"){
-            const double hand_max_vel = M_PI/0.4;//0.4s for 180deg
-            {
-                const double trigger_in = MINMAX_LIMITED(m_masterTgtPoses["lhand"].data.position.y, 0, 1);
-                double tgt_hand_q = (-29.0 + (124.0-(-29.0))*trigger_in ) /180.0*M_PI;
-                fik->m_robot->link("L_HAND")->q = MINMAX_LIMITED(tgt_hand_q, fik->m_robot->link("L_HAND")->llimit, fik->m_robot->link("L_HAND")->ulimit);
-                avg_q_vel(fik->m_robot->link("L_HAND")->jointId) = hand_max_vel;
-            }{
-                const double trigger_in = MINMAX_LIMITED(m_masterTgtPoses["rhand"].data.position.y, 0, 1);
-                double tgt_hand_q = (-29.0 + (124.0-(-29.0))*trigger_in ) /180.0*M_PI;
-                fik->m_robot->link("R_HAND")->q = MINMAX_LIMITED(tgt_hand_q, fik->m_robot->link("R_HAND")->llimit, fik->m_robot->link("R_HAND")->ulimit);
-                avg_q_vel(fik->m_robot->link("R_HAND")->jointId) = hand_max_vel;
-            }
-        }
-
-        smoothingJointAngles(fik->m_robot, m_robot_vsafe);
-
-        hrp::Vector3 com = m_robot_vsafe->calcCM();
-        static hrp::Vector3 com_old = com;
-        static hrp::Vector3 com_old_old = com_old;
-        hrp::Vector3 com_acc = (com - 2*com_old + com_old_old)/(m_dt*m_dt);
-        hrp::Vector3 ref_zmp; ref_zmp << com.head(XY)-(com(Z)/G)*com_acc.head(XY), 0;
-        ref_zmp.head(XY) -= static_balancing_com_offset.head(XY);
-//        if(mode.isInitialize()){ ref_zmp_filter.reset(ref_zmp); }
-//        ref_zmp = ref_zmp_filter.passFilter(ref_zmp);
-        com_old_old = com_old;
-        com_old = com;
-        wbms->act_rs.ref_com = com;
-        wbms->act_rs.ref_zmp = ref_zmp;
-        wbms->act_rs.st_zmp = m_robot_vsafe->rootLink()->p + m_robot_vsafe->rootLink()->R * rel_act_zmp;
-
-        // qRef
-        for (int i = 0; i < m_qRef.data.length(); i++ ){
-          if(has(wbms->wp.use_joints, fik->m_robot->joint(i)->name)){
-              m_qRef.data[i] = output_ratio * m_robot_vsafe->joint(i)->q  + (1 - output_ratio) * m_qRef.data[i];
-          }
-        }
-        // basePos
-        m_basePos.data = hrp::to_Point3D( output_ratio * m_robot_vsafe->rootLink()->p + (1 - output_ratio) * hrp::to_Vector3(m_basePos.data));
-        m_basePos.tm = m_qRef.tm;
-        // baseRpy
-        m_baseRpy.data = hrp::to_Orientation3D( output_ratio * hrp::rpyFromRot(m_robot_vsafe->rootLink()->R) + (1 - output_ratio) * hrp::to_Vector3(m_baseRpy.data));
-        m_baseRpy.tm = m_qRef.tm;
-        // zmp
-        hrp::Vector3 rel_ref_zmp = m_robot_vsafe->rootLink()->R.transpose() * (ref_zmp - m_robot_vsafe->rootLink()->p);
-        m_zmp.data = hrp::to_Point3D( output_ratio * rel_ref_zmp + (1 - output_ratio) * hrp::to_Vector3(m_zmp.data));
-        m_zmp.tm = m_qRef.tm;
-        // m_optionalData
-        if(m_optionalData.data.length() < optionalDataLength){
-            m_optionalData.data.length(optionalDataLength);//TODO:これいいのか？
-            for(int i=0;i<optionalDataLength;i++)m_optionalData.data[i] = 0;
-        }
-        if(wbms->legged){
-            m_optionalData.data[contact_states_index_map["rleg"]] = m_optionalData.data[optionalDataLength/2 + contact_states_index_map["rleg"]] = wbms->rp_ref_out.tgt[rf].is_contact();
-            m_optionalData.data[contact_states_index_map["lleg"]] = m_optionalData.data[optionalDataLength/2 + contact_states_index_map["lleg"]] = wbms->rp_ref_out.tgt[lf].is_contact();
-        }
-        addTimeReport("SetOutPut");
-
-    }
-    wbms->baselinkpose.p = fik->m_robot->rootLink()->p;
-    wbms->baselinkpose.R = fik->m_robot->rootLink()->R;
-    // send back auto detected floor height
-    
-    if(wbms->legged){
-        for(std::string lr : {"l","r"}){
-            const hrp::Vector3 floor_pos = wbms->rp_ref_out.stgt(lr+"leg").cnt.p - wbms->rp_ref_out.stgt(lr+"leg").offs.p;
-            m_slaveTgtPoses[lr+"floor"].data    = hrp::to_Pose3D( (hrp::dvector6()<<floor_pos,0,0,0).finished());
-            m_slaveTgtPoses[lr+"floor"].tm      = m_qRef.tm;
-            m_slaveTgtPosesOut[lr+"floor"]->write();
-        }
-    }
-
-    // write
-    m_qOut.write();
-    m_basePosOut.write();
-    m_baseRpyOut.write();
-    m_zmpOut.write();
-    m_optionalDataOut.write();
-    addTimeReport("OutPort");
-    if(DEBUGP)RTC_INFO_STREAM(time_report_str);
-    if(DEBUGP)RTC_INFO_STREAM(wbms->ws);
-    loop ++;
-    return RTC::RTC_OK;
+  loop++;
+  return RTC::RTC_OK;
 }
-
-
-void WholeBodyMasterSlaveChoreonoid::processTransition(){
-    switch(mode.now()){
-
-        case MODE_SYNC_TO_WBMS:
-            if(mode.pre() == MODE_IDLE){ double tmp = 1.0; t_ip->setGoal(&tmp, 3.0, true); }
-            if (!t_ip->isEmpty() ){
-                t_ip->get(&output_ratio, true);
-            }else{
-                mode.setNextMode(MODE_WBMS);
-            }
-            break;
-
-        case MODE_SYNC_TO_IDLE:
-            if(mode.pre() == MODE_WBMS || mode.pre() == MODE_PAUSE){ double tmp = 0.0; t_ip->setGoal(&tmp, 3.0, true); }
-            if (!t_ip->isEmpty()) {
-                t_ip->get(&output_ratio, true);
-            }else{
-                mode.setNextMode(MODE_IDLE);
-            }
-            break;
-    }
-}
-
 
 void WholeBodyMasterSlaveChoreonoid::preProcessForWholeBodyMasterSlave(){
     fik->m_robot->rootLink()->p = hrp::to_Vector3(m_basePos.data);
@@ -781,62 +587,35 @@ void WholeBodyMasterSlaveChoreonoid::smoothingJointAngles(hrp::BodyPtr _robot, h
 
 
 bool WholeBodyMasterSlaveChoreonoid::startWholeBodyMasterSlave(){
-    if(mode.now() == MODE_IDLE){
-        RTC_INFO_STREAM("startWholeBodyMasterSlave");
-        mode.setNextMode(MODE_SYNC_TO_WBMS);
-        return true;
-    }else{
-        RTC_WARN_STREAM("Invalid context to startWholeBodyMasterSlave");
-        return false;
-    }
-}
-
-
-bool WholeBodyMasterSlaveChoreonoid::pauseWholeBodyMasterSlave(){
-    if(mode.now() == MODE_WBMS){
-        RTC_INFO_STREAM("pauseWholeBodyMasterSlave");
-        mode.setNextMode(MODE_PAUSE);
-        return true;
-    }else{
-        RTC_WARN_STREAM("Invalid context to pauseWholeBodyMasterSlave");
-        return false;
-    }
-}
-
-
-bool WholeBodyMasterSlaveChoreonoid::resumeWholeBodyMasterSlave(){
-    if(mode.now() == MODE_PAUSE){
-        RTC_INFO_STREAM("resumeWholeBodyMasterSlave");
-        mode.setNextMode(MODE_WBMS);
-        return true;
-    }else{
-        RTC_WARN_STREAM("Invalid context to resumeWholeBodyMasterSlave");
-        return false;
-    }
+  if(this->mode_.now() == MODE_IDLE){
+    RTC_INFO_STREAM("startWholeBodyMasterSlave");
+    this->mode_.setNextMode(MODE_SYNC_TO_WBMS);
+    return true;
+  }else{
+    RTC_WARN_STREAM("Invalid context to startWholeBodyMasterSlave");
+    return false;
+  }
 }
 
 
 bool WholeBodyMasterSlaveChoreonoid::stopWholeBodyMasterSlave(){
-    if(mode.now() == MODE_WBMS || mode.now() == MODE_PAUSE ){
+    if(this->mode_.now() == MODE_WBMS ){
         RTC_INFO_STREAM("stopWholeBodyMasterSlave");
-        mode.setNextMode(MODE_SYNC_TO_IDLE);
+        this->mode_.setNextMode(MODE_SYNC_TO_IDLE);
         return true;
     }else{
         RTC_WARN_STREAM("Invalid context to stopWholeBodyMasterSlave");
         return false;
     }
 }
-namespace hrp{
-//    hrp::Vector2 to_Vector2(const OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence2& in){ return (hrp::Vector2()<< in[0],in[1]).finished(); }
-//    hrp::Vector2 to_Vector3(const OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence3& in){ return hrp::dvector::Map(in.get_buffer(), in.length()); }
-//    hrp::Vector2 to_Vector4(const OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence4& in){ return (hrp::Vector4()<< in[0],in[1]).finished(); }
-    OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence2 to_DblSequence2(const hrp::Vector2& in){
-        OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence2 ret; ret.length(in.size()); hrp::Vector2::Map(ret.get_buffer()) = in; return ret; }
-    OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence3 to_DblSequence3(const hrp::Vector3& in){
-        OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence3 ret; ret.length(in.size()); hrp::Vector3::Map(ret.get_buffer()) = in; return ret; }
-    OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence4 to_DblSequence4(const hrp::Vector4& in){
-        OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence4 ret; ret.length(in.size()); hrp::Vector4::Map(ret.get_buffer()) = in; return ret; }
-}
+
+OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence2 to_DblSequence2(const hrp::Vector2& in){
+  OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence2 ret; ret.length(in.size()); hrp::Vector2::Map(ret.get_buffer()) = in; return ret; }
+OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence3 to_DblSequence3(const hrp::Vector3& in){
+  OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence3 ret; ret.length(in.size()); hrp::Vector3::Map(ret.get_buffer()) = in; return ret; }
+OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence4 to_DblSequence4(const hrp::Vector4& in){
+  OpenHRP::WholeBodyMasterSlaveChoreonoidService::DblSequence4 ret; ret.length(in.size()); hrp::Vector4::Map(ret.get_buffer()) = in; return ret; }
+
 
 bool WholeBodyMasterSlaveChoreonoid::setParams(const OpenHRP::WholeBodyMasterSlaveChoreonoidService::WholeBodyMasterSlaveChoreonoidParam& i_param){
     RTC_INFO_STREAM("setWholeBodyMasterSlaveChoreonoidParam");
@@ -897,7 +676,6 @@ bool WholeBodyMasterSlaveChoreonoid::getParams(OpenHRP::WholeBodyMasterSlaveChor
     i_param.use_targets                         = hrp::to_StrSequence(wbms->wp.use_targets);
     return true;
 }
-
 
 RTC::ReturnCode_t WholeBodyMasterSlaveChoreonoid::onActivated(RTC::UniqueId ec_id){ RTC_INFO_STREAM("onActivated(" << ec_id << ")"); return RTC::RTC_OK; }
 RTC::ReturnCode_t WholeBodyMasterSlaveChoreonoid::onDeactivated(RTC::UniqueId ec_id){ RTC_INFO_STREAM("onDeactivated(" << ec_id << ")"); return RTC::RTC_OK; }

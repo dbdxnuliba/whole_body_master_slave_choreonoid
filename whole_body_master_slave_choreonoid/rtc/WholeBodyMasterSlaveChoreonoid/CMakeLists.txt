@@ -1,7 +1,9 @@
 add_compile_options(-std=c++11)
 set(CMAKE_BUILD_TYPE Release)
 
-find_package(catkin REQUIRED rtmbuild)
+find_package(catkin REQUIRED
+  rtmbuild
+  fullbody_inverse_kinematics_solver)
 find_package(choreonoid REQUIRED)
 find_package(OpenCV REQUIRED)
 

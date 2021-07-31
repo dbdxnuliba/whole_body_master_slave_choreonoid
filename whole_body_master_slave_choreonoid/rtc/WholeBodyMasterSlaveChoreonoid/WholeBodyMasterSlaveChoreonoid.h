@@ -1,6 +1,9 @@
 #ifndef WholeBodyMasterSlaveChoreonoid_H
 #define WholeBodyMasterSlaveChoreonoid_H
 
+#include <memory>
+#include <time.h>
+
 #include <rtm/idl/BasicDataType.hh>
 #include <rtm/idl/ExtendedDataTypes.hh>
 #include <rtm/Manager.h>
@@ -11,8 +14,14 @@
 #include <rtm/idl/BasicDataTypeSkel.h>
 #include <rtm/idl/ExtendedDataTypesSkel.h>
 #include <rtm/CorbaNaming.h>
-#include <time.h>
 
+#include <cnoid/Body>
+
+#include <fullbody_inverse_kinematics_solver/FullbodyInverseKinematicsSolverFast.h>
+#include <cpp_filters/TwoPointInterpolator.h>
+#include <cpp_filters/IIRFilter.h>
+
+#include <whole_body_master_slave_choreonoid/idl/EndEffectorState.hh>
 #include "WholeBodyMasterSlaveChoreonoidService_impl.h"
 #include "wbms_core.h"
 
@@ -21,7 +30,6 @@
 class WholeBodyMasterSlaveChoreonoid : public RTC::DataFlowComponentBase{
 public:
   WholeBodyMasterSlaveChoreonoid(RTC::Manager* manager);
-  virtual ~WholeBodyMasterSlaveChoreonoid();
   virtual RTC::ReturnCode_t onInitialize();
   virtual RTC::ReturnCode_t onFinalize();
   virtual RTC::ReturnCode_t onActivated(RTC::UniqueId ec_id);
@@ -31,73 +39,50 @@ public:
   bool stopWholeBodyMasterSlave();
   bool pauseWholeBodyMasterSlave();
   bool resumeWholeBodyMasterSlave();
-  bool setParams(const OpenHRP::WholeBodyMasterSlaveChoreonoidService::WholeBodyMasterSlaveChoreonoidParam& i_param);
-  bool getParams(OpenHRP::WholeBodyMasterSlaveChoreonoidService::WholeBodyMasterSlaveChoreonoidParam& i_param);
+  bool setParams(const WholeBodyMasterSlaveChoreonoidIdl::WholeBodyMasterSlaveChoreonoidService::WholeBodyMasterSlaveChoreonoidParam& i_param);
+  bool getParams(WholeBodyMasterSlaveChoreonoidIdl::WholeBodyMasterSlaveChoreonoidService::WholeBodyMasterSlaveChoreonoidParam& i_param);
 
-protected:
-  RTC::TimedDoubleSeq m_qRef;
-  RTC::InPort<RTC::TimedDoubleSeq> m_qRefIn;
-  RTC::TimedDoubleSeq m_qAct;
-  RTC::InPort<RTC::TimedDoubleSeq> m_qActIn;
-  RTC::TimedPoint3D m_basePos;
-  RTC::InPort<RTC::TimedPoint3D> m_basePosIn;
-  RTC::TimedOrientation3D m_baseRpy;
-  RTC::InPort<RTC::TimedOrientation3D> m_baseRpyIn;
-  RTC::TimedPoint3D m_zmp;
-  RTC::InPort<RTC::TimedPoint3D> m_zmpIn;
-  RTC::TimedDoubleSeq m_optionalData;
-  RTC::InPort<RTC::TimedDoubleSeq> m_optionalDataIn;
-  typedef boost::shared_ptr<RTC::InPort   <RTC::TimedPose3D>      > ITP3_Ptr;
-  typedef boost::shared_ptr<RTC::InPort   <RTC::TimedDoubleSeq>   > ITDS_Ptr;
-  typedef boost::shared_ptr<RTC::OutPort  <RTC::TimedPose3D>      > OTP3_Ptr;
-  typedef boost::shared_ptr<RTC::OutPort  <RTC::TimedDoubleSeq>   > OTDS_Ptr;
+  class Ports {
+  public:
+    Ports();
 
-  std::map<std::string, RTC::TimedPose3D> m_masterTgtPoses;
-  std::map<std::string, ITP3_Ptr> m_masterTgtPosesIn;
+    RTC::TimedDoubleSeq m_qRef_;
+    RTC::InPort<RTC::TimedDoubleSeq> m_qRefIn_;
+    RTC::TimedPoint3D m_basePosRef_;
+    RTC::InPort<RTC::TimedPoint3D> m_basePosRefIn_;
+    RTC::TimedOrientation3D m_baseRpyRef_;
+    RTC::InPort<RTC::TimedOrientation3D> m_baseRpyRefIn_;
+    WholeBodyMasterSlaveChoreonoidIdl::TimedEndEffectorStateSeq m_eeStateRef_;
+    RTC::InPort <WholeBodyMasterSlaveChoreonoidIdl::TimedEndEffectorStateSeq> m_eeStateRefIn_;
 
-  std::map<std::string, RTC::TimedDoubleSeq> m_masterEEWrenches;
-  std::map<std::string, ITDS_Ptr> m_masterEEWrenchesIn;
+    RTC::TimedDoubleSeq m_qAct_;
+    RTC::InPort<RTC::TimedDoubleSeq> m_qActIn_;
+    RTC::TimedOrientation3D m_imuAct_;
+    RTC::InPort<RTC::TimedOrientation3D> m_imuActIn_;
+    std::map<std::string, RTC::TimedDoubleSeq> m_fsensorAct_;
+    std::map<std::string, std::shared_ptr<RTC::InPort <RTC::TimedDoubleSeq> > > m_fsensorActIn_;
 
-  std::map<std::string, RTC::TimedDoubleSeq> m_slaveEEWrenches;
-  std::map<std::string, OTDS_Ptr> m_slaveEEWrenchesOut;
+    RTC::TimedDoubleSeq m_qCom_;
+    RTC::OutPort<RTC::TimedDoubleSeq> m_qComOut_;
+    RTC::TimedPoint3D m_basePosCom_;
+    RTC::OutPort<RTC::TimedPoint3D> m_basePosComOut_;
+    RTC::TimedOrientation3D m_baseRpyCom_;
+    RTC::OutPort<RTC::TimedOrientation3D> m_baseRpyComOut_;
 
-  std::map<std::string, RTC::TimedPose3D> m_slaveTgtPoses;
-  std::map<std::string, OTP3_Ptr> m_slaveTgtPosesOut;
+    WholeBodyMasterSlaveChoreonoidIdl::TimedEndEffectorStateSeq m_eeStateAct_;
+    RTC::OutPort<WholeBodyMasterSlaveChoreonoidIdl::TimedEndEffectorStateSeq> m_eeStateActOut_;
 
-  std::map<std::string, RTC::TimedDoubleSeq> m_localEEWrenches;
-  std::map<std::string, ITDS_Ptr> m_localEEWrenchesIn;
+    RTC::Time m_delayCheckPacket_;
+    RTC::InPort<RTC::Time> m_delayCheckPacketInboundIn_;
+    RTC::OutPort<RTC::Time> m_delayCheckPacketOutboundOut_;
 
-  RTC::Time m_delayCheckPacket;
-  RTC::InPort<RTC::Time> m_delayCheckPacketInboundIn;
-  RTC::OutPort<RTC::Time> m_delayCheckPacketOutboundOut;
-
-  RTC::TimedDoubleSeq m_exData;
-  RTC::InPort<RTC::TimedDoubleSeq> m_exDataIn;
-  RTC::TimedStringSeq m_exDataIndex;
-  RTC::InPort<RTC::TimedStringSeq> m_exDataIndexIn;
-
-  RTC::TimedPoint3D m_actCP;
-  RTC::InPort<RTC::TimedPoint3D> m_actCPIn;
-  RTC::TimedPoint3D m_actZMP;
-  RTC::InPort<RTC::TimedPoint3D> m_actZMPIn;
-
-  RTC::OutPort<RTC::TimedDoubleSeq> m_qOut;
-  RTC::OutPort<RTC::TimedPoint3D> m_zmpOut;
-  RTC::OutPort<RTC::TimedPoint3D> m_basePosOut;
-  RTC::OutPort<RTC::TimedOrientation3D> m_baseRpyOut;
-  RTC::OutPort<RTC::TimedDoubleSeq> m_optionalDataOut;
-  RTC::CorbaPort m_WholeBodyMasterSlaveChoreonoidServicePort;
-
-  WholeBodyMasterSlaveChoreonoidService_impl m_service0;
-
-  RTC::CorbaPort m_AutoBalancerServicePort;
-  RTC::CorbaPort m_StabilizerServicePort;
-  RTC::CorbaConsumer<OpenHRP::AutoBalancerService> m_AutoBalancerServiceConsumer;
-  RTC::CorbaConsumer<OpenHRP::StabilizerService> m_StabilizerServiceConsumer;
+    WholeBodyMasterSlaveChoreonoidService_impl m_service0_;
+    RTC::CorbaPort m_WholeBodyMasterSlaveChoreonoidServicePort_;
+  };
 
   class ControlMode{
   public:
-    enum mode_enum{ MODE_IDLE, MODE_SYNC_TO_WBMS, MODE_WBMS, MODE_PAUSE, MODE_SYNC_TO_IDLE};
+    enum mode_enum{ MODE_IDLE, MODE_SYNC_TO_WBMS, MODE_WBMS, MODE_SYNC_TO_IDLE};
   private:
     mode_enum current, previous, next;
   public:
@@ -108,11 +93,9 @@ protected:
       case MODE_SYNC_TO_WBMS:
         if(current == MODE_IDLE){ next = MODE_SYNC_TO_WBMS; return true; }else{ return false; }
       case MODE_WBMS:
-        if(current == MODE_SYNC_TO_WBMS || current == MODE_PAUSE ){ next = MODE_WBMS; return true; }else{ return false; }
-      case MODE_PAUSE:
-        if(current == MODE_WBMS){ next = MODE_PAUSE; return true; }else{ return false; }
+        if(current == MODE_SYNC_TO_WBMS){ next = MODE_WBMS; return true; }else{ return false; }
       case MODE_SYNC_TO_IDLE:
-        if(current == MODE_WBMS || current == MODE_PAUSE ){ next = MODE_SYNC_TO_IDLE; return true; }else{ return false; }
+        if(current == MODE_WBMS){ next = MODE_SYNC_TO_IDLE; return true; }else{ return false; }
       case MODE_IDLE:
         if(current == MODE_SYNC_TO_IDLE ){ next = MODE_IDLE; return true; }else{ return false; }
       default:
@@ -122,29 +105,35 @@ protected:
     void update(){ previous = current; current = next; }
     mode_enum now(){ return current; }
     mode_enum pre(){ return previous; }
-    bool isRunning(){ return (current==MODE_SYNC_TO_WBMS) || (current==MODE_WBMS) || (current==MODE_PAUSE) || (current==MODE_SYNC_TO_IDLE) ;}
+    bool isRunning(){ return (current==MODE_SYNC_TO_WBMS) || (current==MODE_WBMS) || (current==MODE_SYNC_TO_IDLE) ;}
     bool isInitialize(){ return (previous==MODE_IDLE) && (current==MODE_SYNC_TO_WBMS) ;}
   };
 
-private:
-  double m_dt;
+protected:
+
+  unsigned int m_debugLevel_;
   unsigned int loop;
-  unsigned int m_debugLevel;
-  int optionalDataLength;
-  hrp::BodyPtr m_robot_act; // actual
-  hrp::BodyPtr m_robot_vsafe; // joint trajectory safe
-  typedef boost::shared_ptr<FullbodyInverseKinematicsSolver> fikPtr;
-  fikPtr fik;
+  double m_dt_;
+
+  Ports port_;
+  ControlMode mode_;
+
+  cnoid::BodyPtr m_robot_ref_; // reference (without ee. q, basepos and baserpy only)
+  cnoid::BodyPtr m_robot_act_; // actual
+  cnoid::BodyPtr m_robot_com_; // command
+
+  std::shared_ptr<cpp_filters::TwoPointInterpolator<double> > outputRatioInterpolator_;
+
+  std::shared_ptr<cpp_filters::TwoPointInterpolator<cnoid::VectorX> > outputSmoothingInterpolator_;
+  cnoid::VectorX avg_q_vel_, avg_q_acc_;
+
+  cpp_filters::IIRFilter<cnoid::Vector3> staticBalancingCOMOffsetFilter_;
+
+
+
+
   std::map<std::string, IKConstraint> ee_ikc_map; // e.g. feet hands head com
   std::map<std::string, size_t> contact_states_index_map;
-
-  double output_ratio;
-  interpolator *t_ip,*q_ip;
-  hrp::dvector avg_q_vel, avg_q_acc;
-
-  hrp::InvDynStateBuffer idsb;
-  BiquadIIRFilterVec ref_zmp_filter;
-  std::map<std::string, BiquadIIRFilterVec> ee_f_filter;
 
   HumanPose raw_pose;
 
@@ -152,7 +141,6 @@ private:
   boost::shared_ptr<CapsuleCollisionChecker> sccp;
 
   hrp::Vector3 torso_rot_rmc;
-  ControlMode mode;
 
   hrp::Vector3 rel_act_cp;
   hrp::Vector3 rel_act_zmp;
@@ -166,7 +154,6 @@ private:
 
   RTC::ReturnCode_t setupEEIKConstraintFromConf(std::map<std::string, IKConstraint>& _ee_ikc_map, hrp::BodyPtr _robot, RTC::Properties& _prop);
   void solveFullbodyIK(HumanPose& ref);
-  void processTransition();
   void preProcessForWholeBodyMasterSlave();
   void processWholeBodyMasterSlave(const HumanPose& ref);
   void smoothingJointAngles(hrp::BodyPtr _robot, hrp::BodyPtr _robot_safe);
