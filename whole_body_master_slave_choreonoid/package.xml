@@ -36,6 +36,9 @@
   <depend>roscpp</depend>
   <depend>rtmbuild</depend>
 
+  <depend>fullbody_inverse_kinematics_solver</depend>
+  <depend>cpp_filters</depend>
+
   <!-- The export tag contains other, unspecified, tags -->
   <export>
     <!-- Other tools can request additional information be placed here -->

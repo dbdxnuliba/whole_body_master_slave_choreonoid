@@ -1,0 +1,33 @@
+#include "ExtendedDataTypes.idl" // openrtm
+
+module WholeBodyMasterSlaveChoreonoidIdl
+{
+  typedef double DblSequence6[6];
+
+  struct PrimitiveState
+  {
+    string name;
+    string parentLinkName;
+    RTC::Pose3D localPose;
+
+    // world frame
+    double time;
+    RTC::Pose3D pose;
+    DblSequence6 wrench;
+
+    // local frame
+    DblSequence6 M;
+    DblSequence6 D;
+    DblSequence6 K;
+
+    // local frame
+    DblSequence6 actWrench; // Position control only
+    DblSequence6 wrenchGain; // Position control only
+  };
+
+  struct TimedPrimitiveStateSeq
+  {
+    RTC::Time tm;
+    sequence<PrimitiveState> data;
+  };
+};

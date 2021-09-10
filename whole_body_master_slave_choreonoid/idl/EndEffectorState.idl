@@ -2,16 +2,20 @@
 
 module WholeBodyMasterSlaveChoreonoidIdl
 {
+  enum ContactState {
+    CONTACT,
+    AIR
+  };
+
+  enum ConstraintType {
+    SIX_AXIS,
+    TRANSLATION_ONLY,
+    ROTATION_ONLY,
+    FREE
+  };
+
   struct EndEffectorState
   {
-    enum Type {
-      FIX,
-      FLOAT,
-      FLOAT_TRANSLATION_ONLY,
-      FLOAT_ROTATION_ONLY,
-      FREE
-    };
-
     string name;
     string parentLinkName;
     RTC::Pose3D localPose;
