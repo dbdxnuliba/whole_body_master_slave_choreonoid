@@ -1,6 +1,7 @@
 #ifndef PrimitiveMotionLevelController_PositionControl_H
 #define PrimitiveMotionLevelController_PositionControl_H
 
+#include <unordered_map>
 #include <cnoid/Body>
 #include <fullbody_inverse_kinematics_solver/FullbodyInverseKinematicsSolverFast.h>
 #include <ik_constraint/PositionConstraint.h>
@@ -15,7 +16,6 @@ namespace PrimitiveMotionLevel {
     void reset();
     void control(const std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap, // primitive motion level target
                  const cnoid::BodyPtr& robot_ref, // command level target
-                 const cnoid::BodyPtr& robot_act, //actual
                  cnoid::BodyPtr& robot_com, //output
                  const bool& frameWarped, // if true, not calculate velocity
                  double dt
@@ -26,6 +26,7 @@ namespace PrimitiveMotionLevel {
       PositionTask(const std::string& name);
       void updateFromPrimitiveCommand(const std::shared_ptr<const PrimitiveMotionLevel::PrimitiveCommand>& primitiveCommand) {primitiveCommand_ = primitiveCommand;}
       void calcImpedanceControl(double dt);
+      void getIKConstraints(std::vector<std::shared_ptr<IK::IKConstraint> >& ikConstraints, const cnoid::BodyPtr& robot_com);
       const std::string& name() const { return name_;}
       const std::shared_ptr<const PrimitiveMotionLevel::PrimitiveCommand>& primitiveCommand() const {return primitiveCommand_;}
     protected:
@@ -34,9 +35,13 @@ namespace PrimitiveMotionLevel {
 
       cnoid::Position offset_; // world系
       cnoid::Vector6 dOffsetPrev_; // world系
+
+      std::shared_ptr<IK::PositionConstraint> positionConstraint_;
+      std::shared_ptr<IK::COMConstraint> comConstraint_;
     };
   protected:
     std::map<std::string, std::shared_ptr<PositionTask> > positionTaskMap_;
+    std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointAngleConstraint> > jointAngleConstraint_;
   };
 }
 
