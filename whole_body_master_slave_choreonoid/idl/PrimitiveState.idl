@@ -23,6 +23,12 @@ module WholeBodyMasterSlaveChoreonoidIdl
     // local frame
     DblSequence6 actWrench; // Position control only
     DblSequence6 wrenchGain; // Position control only
+
+    // trueならCOM操作のためにwrenchが修正される
+    boolean supportCOM;
+
+    // 座標系の対応をとるための基準
+    boolean fixedFrame;
   };
 
   struct TimedPrimitiveStateSeq

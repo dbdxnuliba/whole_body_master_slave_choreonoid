@@ -2,6 +2,7 @@
 #define PrimitiveMotionLevelController_H
 
 #include <memory>
+#include <map>
 #include <time.h>
 
 #include <rtm/idl/BasicDataType.hh>
@@ -17,14 +18,13 @@
 
 #include <cnoid/Body>
 
-#include <fullbody_inverse_kinematics_solver/FullbodyInverseKinematicsSolverFast.h>
 #include <cpp_filters/TwoPointInterpolator.h>
 #include <cpp_filters/IIRFilter.h>
 
 #include <whole_body_master_slave_choreonoid/idl/PrimitiveState.hh>
 #include "PrimitiveMotionLevelControllerService_impl.h"
-
-//#define USE_DEBUG_PORT
+#include "PrimitiveCommand.h"
+#include "PositionController.h"
 
 class PrimitiveMotionLevelController : public RTC::DataFlowComponentBase{
 public:
@@ -52,8 +52,8 @@ public:
     RTC::InPort<RTC::TimedPoint3D> m_basePosRefIn_;
     RTC::TimedOrientation3D m_baseRpyRef_;
     RTC::InPort<RTC::TimedOrientation3D> m_baseRpyRefIn_;
-    WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelControllerService::PrimitiveCommand m_primitiveCommandRef_;
-    RTC::InPort <WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelControllerService::PrimitiveCommand> m_primitiveCommandRefIn_;
+    WholeBodyMasterSlaveChoreonoidIdl::TimedPrimitiveStateSeq m_primitiveCommandRef_;
+    RTC::InPort <WholeBodyMasterSlaveChoreonoidIdl::TimedPrimitiveStateSeq> m_primitiveCommandRefIn_;
 
     RTC::TimedDoubleSeq m_qAct_;
     RTC::InPort<RTC::TimedDoubleSeq> m_qActIn_;
@@ -100,36 +100,6 @@ public:
     bool isInitialize(){ return (previous==MODE_IDLE) && (current==MODE_SYNC_TO_CONTROL) ;}
   };
 
-  class PrimitiveState {
-  public:
-    PrimitiveState(const std::string& name);
-    void updateFromIdl(const WholeBodyMasterSlaveChoreonoidIdl::PrimitiveState& idl);
-    void updateTargetForOneStep(double dt);
-    const std::string& name() const { return name_;}
-  protected:
-    std::string name_;
-    std::string parentLinkName_;
-    cnoid::Position localPose_;
-
-    cnoid::Position targetPose_; //world frame
-    cnoid::Position targetPosePrev_; //world frame
-    cnoid::Position targetPosePrevPrev_; //world frame
-    cpp_filters::TwoPointInterpolator<cnoid::Vector3> targetPositionInterpolator_; //world frame
-    cpp_filters::TwoPointInterpolatorSO3 targetOrientationInterpolator_; //world frame
-    cnoid::Vector6 targetWrench_; //world frame
-    cpp_filters::TwoPointInterpolator<cnoid::Vector6> targetWrenchInterpolator_; //world frame
-
-    cnoid::Vector6 M_, D_, K_;// local frame
-
-    cnoid::Vector6 actWrench_; // Position control only
-    cnoid::Vector6 wrenchGain_; // Position control only
-  };
-
-  class frame {
-  public:
-    std::string parentLinkName_;
-    cnoid::Position localPose_;
-  };
 
 public:
   PrimitiveMotionLevelController(RTC::Manager* manager);
@@ -158,15 +128,11 @@ protected:
 
   std::shared_ptr<cpp_filters::TwoPointInterpolator<double> > outputRatioInterpolator_;
 
-  std::unordered_map<std::string, std::shared_ptr<cpp_filters::TwoPointInterpolator<double> > > outputSmoothingInterpolatorMap_;
-  double avg_q_vel_, avg_q_acc_;
+  // 1. 受け取ったprimitive motion level 指令
+  std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> > primitiveCommandMap_;
 
-  frame fixedFrame_;
-  std::map<std::string, std::shared_ptr<PrimitiveState> > primitiveStateMap_;
-
-
-
-
+  // 2. primitiveCommandMap_を受け取り、m_robot_comを計算する
+  PrimitiveMotionLevel::PositionController positionController_;
 
 };
 

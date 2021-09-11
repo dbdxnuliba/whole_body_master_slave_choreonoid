@@ -19,13 +19,6 @@ module WholeBodyMasterSlaveChoreonoidIdl
       RTC::Pose3D localPose;
     };
 
-    struct PrimitiveCommand
-    {
-      RTC::Time tm;
-      TimedPrimitiveStateSeq command;
-      frame fixedFrame;
-    };
-
     struct PrimitiveMotionLevelControllerParam
     {
       string hoge;

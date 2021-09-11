@@ -3,7 +3,7 @@ set(CMAKE_BUILD_TYPE Release)
 
 # openrtm has deprecated coding. This causes too many warnings.
 #   warning: dynamic exception specifications are deprecated in C++11
-set(CMAKE_WARN_DEPRECATED FALSE)
+add_definitions(-Wno-deprecated)
 
 find_package(catkin REQUIRED
   rtmbuild
@@ -25,7 +25,9 @@ endforeach(lib)
 
 rtmbuild_add_library(PrimitiveMotionLevelController SHARED
   PrimitiveMotionLevelController.cpp
-  PrimitiveMotionLevelControllerService_impl.cpp)
+  PrimitiveMotionLevelControllerService_impl.cpp
+  PrimitiveCommand.cpp
+  PositionController.cpp)
 target_link_libraries(PrimitiveMotionLevelController
   ${catkin_LIBRARIES}
   ${CHOREONOID_BODY_LIBRARIES_ABS})
