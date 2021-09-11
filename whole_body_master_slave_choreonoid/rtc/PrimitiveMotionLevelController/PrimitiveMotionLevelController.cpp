@@ -261,7 +261,7 @@ RTC::ReturnCode_t PrimitiveMotionLevelController::onExecute(RTC::UniqueId ec_id)
       PrimitiveMotionLevelControllerImpl::preProcessForControl(instance_name, this->positionController_);
     }
 
-    this->positionController_.control(this->primitiveCommandMap_, this->m_robot_ref_, this->m_robot_act_, this->m_robot_com_, fixedFrameWarped);
+    this->positionController_.control(this->primitiveCommandMap_, this->m_robot_ref_, this->m_robot_act_, this->m_robot_com_, fixedFrameWarped, this->m_dt_);
 
   } else {
     // robot_refがそのままrobot_comになる

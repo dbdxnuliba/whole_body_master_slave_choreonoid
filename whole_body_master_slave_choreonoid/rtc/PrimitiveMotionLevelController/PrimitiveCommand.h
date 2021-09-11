@@ -15,6 +15,11 @@ namespace PrimitiveMotionLevel {
     const std::string& parentLinkName() const { return parentLinkName_;}
     const cnoid::Position& localPose() const { return localPose_;}
     const cnoid::Position& targetPose() const { return targetPose_;}
+    const cnoid::Vector6& M() const { return M_;}
+    const cnoid::Vector6& D() const { return D_;}
+    const cnoid::Vector6& K() const { return K_;}
+    const cnoid::Vector6& actWrench() const { return actWrench_;}
+    const cnoid::Vector6& wrenchGain() const { return wrenchGain_;}
     const bool& supportCOM() const { return supportCOM_; }
     const bool& fixedFrame() const { return fixedFrame_;}
     const bool& fixedFrameChanged() const { return fixedFrameChanged_;}
@@ -33,8 +38,8 @@ namespace PrimitiveMotionLevel {
 
     cnoid::Vector6 M_, D_, K_;// local frame
 
-    cnoid::Vector6 actWrench_; // Position control only
-    cnoid::Vector6 wrenchGain_; // Position control only
+    cnoid::Vector6 actWrench_; // local frame // Position control only
+    cnoid::Vector6 wrenchGain_; // local frame // Position control only
 
     bool supportCOM_;
     bool fixedFrame_;

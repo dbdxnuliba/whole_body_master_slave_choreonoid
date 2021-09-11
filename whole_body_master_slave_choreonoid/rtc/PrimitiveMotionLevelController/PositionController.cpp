@@ -1,6 +1,52 @@
 #include "PositionController.h"
+#include <cnoid/EigenUtil>
 
 namespace PrimitiveMotionLevel {
+  PositionController::PositionTask::PositionTask(const std::string& name) :
+    name_(name),
+    offset_(cnoid::Position::Identity()),
+    dOffsetPrev_(cnoid::Vector6::Zero())
+  {
+  }
+
+  void PositionController::PositionTask::calcImpedanceControl(double dt){
+    cnoid::Matrix3 eeR = this->offset_.linear() * this->primitiveCommand_->targetPose().linear();
+
+    cnoid::Vector6 offsetPrev; //world系
+    offsetPrev.head<3>() = this->offset_.translation();
+    offsetPrev.tail<3>() = cnoid::omegaFromRot(this->offset_.linear());
+
+    cnoid::Vector6 offsetPrevLocal; //local系
+    offsetPrevLocal.head<3>() = eeR.transpose() * offsetPrev.head<3>();
+    offsetPrevLocal.tail<3>() = eeR.transpose() * offsetPrev.tail<3>();
+
+    cnoid::Vector6 dOffsetPrevLocal; //local系
+    offsetPrevLocal.head<3>() = eeR.transpose() * this->dOffsetPrev_.head<3>();
+    offsetPrevLocal.tail<3>() = eeR.transpose() * this->dOffsetPrev_.tail<3>();
+
+    cnoid::Vector6 dOffsetLocal; //local系
+    for(size_t i=0;i<6;i++){
+      if(this->primitiveCommand_->M()[i] == 0.0 && this->primitiveCommand_->D()[i] == 0.0 && this->primitiveCommand_->K()[i]==0.0){
+        dOffsetLocal[i] = 0.0;
+        continue;
+      }
+
+      dOffsetLocal[i] =
+        (this->primitiveCommand_->actWrench()[i] * this->primitiveCommand_->wrenchGain()[i] * dt * dt
+         - this->primitiveCommand_->K()[i] * offsetPrevLocal[i] * dt * dt
+         + this->primitiveCommand_->M()[i] * dOffsetPrevLocal[i]*dt)
+        / (this->primitiveCommand_->M()[i] + this->primitiveCommand_->D()[i] * dt + this->primitiveCommand_->K()[i] * dt * dt);
+    }
+
+    cnoid::Vector6 dOffset; //world系
+    dOffset.head<3>() = eeR * dOffsetLocal.head<3>();
+    dOffset.tail<3>() = eeR * dOffsetLocal.tail<3>();
+
+    this->offset_.translation() += dOffset.head<3>();
+    this->offset_.linear() = (cnoid::AngleAxisd(dOffset.tail<3>().norm(), dOffset.tail<3>().norm()>0 ? dOffset.tail<3>().normalized() : cnoid::Vector3::UnitX()) * this->offset_.linear()).eval();
+    this->dOffsetPrev_ = dOffset / dt;
+  }
+
   void PositionController::reset() {
     this->positionTaskMap_.clear();
   }
@@ -35,9 +81,6 @@ namespace PrimitiveMotionLevel {
       if(!comTask) return;
     }
 
-    void calcImpedanceControl(std::vector<std::shared_ptr<PositionController::PositionTask> >& noCOMTask, const bool& frameWarped) {
-    }
-
     void getPrimitiveMotionLevelIKConstraints(const std::map<std::string, std::shared_ptr<PositionController::PositionTask> >& PositionTaskMap, std::vector<std::shared_ptr<IK::IKConstraint> >& primitiveMotionLevelIKConstraints) {
     }
 
@@ -52,7 +95,8 @@ namespace PrimitiveMotionLevel {
                                    const cnoid::BodyPtr& robot_ref, // command level target
                                    const cnoid::BodyPtr& robot_act, //actual
                                    cnoid::BodyPtr& robot_com, //output
-                                   const bool& frameWarped // if true, not calculate velocity
+                                   const bool& frameWarped, // if true, not calculate velocity
+                                   double dt
                                    ) {
     // 目標値を反映
     PositionControllerImpl::getPrimitiveCommand(primitiveCommandMap, this->positionTaskMap_);
@@ -77,7 +121,9 @@ namespace PrimitiveMotionLevel {
     }
 
     // 重心以外のIK目標値を計算
-    PositionControllerImpl::calcImpedanceControl(noCOMTask, frameWarped);
+    for(size_t i=0;i<noCOMTask.size();i++){
+      noCOMTask[i]->calcImpedanceControl(dt);
+    }
 
     // primitive motion levelのIKConstraintを取得
     std::vector<std::shared_ptr<IK::IKConstraint> > primitiveMotionLevelIKConstraints;
