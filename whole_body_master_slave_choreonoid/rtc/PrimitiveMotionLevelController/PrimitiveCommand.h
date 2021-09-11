@@ -15,6 +15,7 @@ namespace PrimitiveMotionLevel {
     const std::string& parentLinkName() const { return parentLinkName_;}
     const cnoid::Position& localPose() const { return localPose_;}
     const cnoid::Position& targetPose() const { return targetPose_;}
+    const cnoid::Vector6& targetWrench() const { return targetWrench_;}
     const cnoid::Vector6& M() const { return M_;}
     const cnoid::Vector6& D() const { return D_;}
     const cnoid::Vector6& K() const { return K_;}

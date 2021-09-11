@@ -14,6 +14,10 @@ namespace PrimitiveMotionLevel {
   void PositionController::PositionTask::calcImpedanceControl(double dt){
     cnoid::Matrix3 eeR = this->offset_.linear() * this->primitiveCommand_->targetPose().linear();
 
+    cnoid::Vector6 targetWrenchLocal; //local系
+    targetWrenchLocal.head<3>() = eeR.transpose() * this->primitiveCommand_->targetWrench().head<3>();
+    targetWrenchLocal.tail<3>() = eeR.transpose() * this->primitiveCommand_->targetWrench().tail<3>();
+
     cnoid::Vector6 offsetPrev; //world系
     offsetPrev.head<3>() = this->offset_.translation();
     offsetPrev.tail<3>() = cnoid::omegaFromRot(this->offset_.linear());
@@ -34,7 +38,7 @@ namespace PrimitiveMotionLevel {
       }
 
       dOffsetLocal[i] =
-        (this->primitiveCommand_->actWrench()[i] * this->primitiveCommand_->wrenchGain()[i] * dt * dt
+        ((this->primitiveCommand_->actWrench()[i] - targetWrenchLocal[i]) * this->primitiveCommand_->wrenchGain()[i] * dt * dt
          - this->primitiveCommand_->K()[i] * offsetPrevLocal[i] * dt * dt
          + this->primitiveCommand_->M()[i] * dOffsetPrevLocal[i]*dt)
         / (this->primitiveCommand_->M()[i] + this->primitiveCommand_->D()[i] * dt + this->primitiveCommand_->K()[i] * dt * dt);
@@ -80,6 +84,7 @@ namespace PrimitiveMotionLevel {
   void PositionController::reset() {
     this->positionTaskMap_.clear();
     this->jointAngleConstraint_.clear();
+    jlim_avoid_weight_old_ = cnoid::VectorX::Zero(0);
   }
 
   namespace PositionControllerImpl {
@@ -115,7 +120,22 @@ namespace PrimitiveMotionLevel {
       }
     }
 
-    void solveFullbodyIK(cnoid::BodyPtr& robot_com, std::vector<std::shared_ptr<IK::IKConstraint> >& primitiveMotionLevelIKConstraints, std::vector<std::shared_ptr<IK::IKConstraint> >& commandLevelIKConstraints) {
+    void solveFullbodyIK(cnoid::BodyPtr& robot_com, std::vector<std::shared_ptr<IK::IKConstraint> >& primitiveMotionLevelIKConstraints, std::vector<std::shared_ptr<IK::IKConstraint> >& commandLevelIKConstraints, cnoid::VectorX& jlim_avoid_weight_old) {
+      if(jlim_avoid_weight_old.size() != 6+robot_com->numJoints()) jlim_avoid_weight_old = cnoid::VectorX::Zero(6+robot_com->numJoints());
+      cnoid::VectorX dq_weight_all = cnoid::VectorX::Ones(6+robot_com->numJoints());
+      if(robot_com->rootLink()->jointType() == cnoid::Link::FIXED_JOINT) dq_weight_all.head<6>() << 0.0,0.0,0.0,0.0,0.0,0.0;
+
+      std::vector<std::shared_ptr<IK::IKConstraint> > ikConstraint;
+      ikConstraint.insert(ikConstraint.end(), primitiveMotionLevelIKConstraints.begin(), primitiveMotionLevelIKConstraints.end());
+      ikConstraint.insert(ikConstraint.end(), commandLevelIKConstraints.begin(), commandLevelIKConstraints.end());
+      fik::solveFullbodyIKLoopFast(robot_com,
+                                   ikConstraint,
+                                   jlim_avoid_weight_old,
+                                   dq_weight_all,
+                                   1,//loop
+                                   1e-6,
+                                   1//debug
+                                   );
     }
   }
 
@@ -144,7 +164,7 @@ namespace PrimitiveMotionLevel {
     PositionControllerImpl::getCommandLevelIKConstraints(robot_ref, this->jointAngleConstraint_, commandLevelIKConstraints, robot_com);
 
     // solve ik
-    PositionControllerImpl::solveFullbodyIK(robot_com, primitiveMotionLevelIKConstraints, commandLevelIKConstraints);
+    PositionControllerImpl::solveFullbodyIK(robot_com, primitiveMotionLevelIKConstraints, commandLevelIKConstraints, this->jlim_avoid_weight_old_);
   }
 
 }

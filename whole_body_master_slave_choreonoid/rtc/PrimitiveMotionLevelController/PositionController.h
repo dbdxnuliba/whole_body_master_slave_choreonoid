@@ -42,6 +42,7 @@ namespace PrimitiveMotionLevel {
   protected:
     std::map<std::string, std::shared_ptr<PositionTask> > positionTaskMap_;
     std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointAngleConstraint> > jointAngleConstraint_;
+    cnoid::VectorX jlim_avoid_weight_old_;
   };
 }
 
