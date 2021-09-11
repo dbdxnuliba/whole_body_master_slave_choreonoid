@@ -25,13 +25,13 @@ static const char* PrimitiveMotionLevelController_spec[] = {
   ""
 };
 
-PrimitiveState::PrimitiveState(const std::string& name) :
+PrimitiveMotionLevelController::PrimitiveState::PrimitiveState(const std::string& name) :
   name_(name),
-  parentLinkName(""),
-  localPose_(cnoid::Position::identity()),
-  targetPose_(cnoid::Position::identity()),
-  targetPosePrev_(cnoid::Position::identity()),
-  targetPosePrevPrev_(cnoid::Position::identity()),
+  parentLinkName_(""),
+  localPose_(cnoid::Position::Identity()),
+  targetPose_(cnoid::Position::Identity()),
+  targetPosePrev_(cnoid::Position::Identity()),
+  targetPosePrevPrev_(cnoid::Position::Identity()),
   targetPositionInterpolator_(cnoid::Vector3::Zero(),cnoid::Vector3::Zero(),cnoid::Vector3::Zero(),cpp_filters::HOFFARBIB),
   targetOrientationInterpolator_(cnoid::Matrix3::Zero(),cnoid::Vector3::Zero(),cnoid::Vector3::Zero(),cpp_filters::HOFFARBIB),
   targetWrench_(cnoid::Vector6::Zero()),
@@ -40,20 +40,20 @@ PrimitiveState::PrimitiveState(const std::string& name) :
   D_(cnoid::Vector6::Zero()),
   K_(cnoid::Vector6::Zero()),
   actWrench_(cnoid::Vector6::Zero()),
-  actWrenchGain_(cnoid::Vector6::Zero())
+  wrenchGain_(cnoid::Vector6::Zero())
 {
 }
 
-void PrimitiveState::updateFromIdl(const WholeBodyMasterSlaveChoreonoidIdl::PrimitiveState& idl) {
+void PrimitiveMotionLevelController::PrimitiveState::updateFromIdl(const WholeBodyMasterSlaveChoreonoidIdl::PrimitiveState& idl) {
   this->parentLinkName_ = idl.parentLinkName;
   this->localPose_.translation()[0] = idl.localPose.position.x;
   this->localPose_.translation()[1] = idl.localPose.position.y;
   this->localPose_.translation()[2] = idl.localPose.position.z;
   this->localPose_.linear() = cnoid::rotFromRpy(idl.localPose.orientation.r,idl.localPose.orientation.p,idl.localPose.orientation.y);
   cnoid::Position pose;
-  pose.translation[0] = idl.pose.x;
-  pose.translation[1] = idl.pose.y;
-  pose.translation[2] = idl.pose.z;
+  pose.translation()[0] = idl.pose.position.x;
+  pose.translation()[1] = idl.pose.position.y;
+  pose.translation()[2] = idl.pose.position.z;
   pose.linear() = cnoid::rotFromRpy(idl.pose.orientation.r,idl.pose.orientation.p,idl.pose.orientation.y);
   this->targetPositionInterpolator_.setGoal(pose.translation(),idl.time);
   this->targetOrientationInterpolator_.setGoal(pose.linear(),idl.time);
@@ -63,14 +63,26 @@ void PrimitiveState::updateFromIdl(const WholeBodyMasterSlaveChoreonoidIdl::Prim
   for(size_t i=0;i<6;i++) this->D_[i] = idl.D[i];
   for(size_t i=0;i<6;i++) this->K_[i] = idl.K[i];
   for(size_t i=0;i<6;i++) this->actWrench_[i] = idl.actWrench[i];
-  for(size_t i=0;i<6;i++) this->actWrenchGain_[i] = idl.actWrenchGain[i];
+  for(size_t i=0;i<6;i++) this->wrenchGain_[i] = idl.wrenchGain[i];
+}
+
+void PrimitiveMotionLevelController::PrimitiveState::updateTargetForOneStep(double dt) {
+  this->targetPosePrevPrev_ = this->targetPosePrev_;
+  this->targetPosePrev_ = this->targetPose_;
+  cnoid::Vector3 trans;
+  this->targetPositionInterpolator_.get(trans, dt);
+  this->targetPose_.translation() = trans;
+  cnoid::Matrix3 R;
+  this->targetOrientationInterpolator_.get(R, dt);
+  this->targetPose_.linear() = R;
+  this->targetWrenchInterpolator_.get(this->targetWrench_, dt);
 }
 
 PrimitiveMotionLevelController::PrimitiveMotionLevelController(RTC::Manager* manager) : RTC::DataFlowComponentBase(manager),
   ports_(),
   m_debugLevel_(0)
 {
-  this->ports_.m_service0_.wholebodymasterslavechoreonoid(this);
+  this->ports_.m_service0_.setComp(this);
 }
 
 RTC::ReturnCode_t PrimitiveMotionLevelController::onInitialize(){
@@ -96,30 +108,30 @@ RTC::ReturnCode_t PrimitiveMotionLevelController::onInitialize(){
   cnoid::BodyLoader bodyLoader;
   cnoid::BodyPtr robot = bodyLoader.load(prop["model"]);
   if(!robot){
-    RTC_WARN_STREAM("failed to load model[" << prop["model"] << "]");
+    std::cerr << "\x1b[31m[" << m_profile.instance_name << "] " << "failed to load model[" << prop["model"] << "]" << "\x1b[39m" << std::endl;
     return RTC::RTC_ERROR;
   }
   this->m_robot_ref_ = robot;
   this->m_robot_act_ = robot->clone();
   this->m_robot_com_ = robot->clone();
 
-  this->outputRatioInterpolator_ = std::make_shared<cpp_filters::TwoPointInterpolator<double> >(0.0,cpp_filters::HOFFARBIB);
+  this->outputRatioInterpolator_ = std::make_shared<cpp_filters::TwoPointInterpolator<double> >(0.0,0.0,0.0,cpp_filters::HOFFARBIB);
 
   for(size_t i=0; i<this->m_robot_com_->numJoints(); i++){
-    this->outputSmoothingInterpolatorMap_[this->m_robot_com_->joint[i]->name()] = std::make_shared<cpp_filters::TwoPointInterpolator<double> >(0.0,cpp_filters::CUBICSPLINE); // or HOFFARBIB, QUINTICSPLINE
+    this->outputSmoothingInterpolatorMap_[this->m_robot_com_->joint(i)->name()] = std::make_shared<cpp_filters::TwoPointInterpolator<double> >(0.0,0.0,0.0,cpp_filters::CUBICSPLINE); // or HOFFARBIB, QUINTICSPLINE
   }
   this->avg_q_vel_ = 4.0;// 1.0だと安全.4.0は脚.10.0はlapid manipulation らしい
   this->avg_q_acc_ = 16.0; // all joint max avarage acc = 16.0 rad/s^2
 
   this->fixedFrame_.parentLinkName_ = this->m_robot_ref_->rootLink()->name();
-  this->fixedFrame_.localPose = cnoid::Position::Identity();
+  this->fixedFrame_.localPose_ = cnoid::Position::Identity();
 
   return RTC::RTC_OK;
 }
 
 namespace PrimitiveMotionLevelControllerImpl {
 
-  void readPorts(PrimitiveMotionLevelController::Ports& port) {
+  void readPorts(const std::string& instance_name, PrimitiveMotionLevelController::Ports& port) {
     if(port.m_qRefIn_.isNew()) port.m_qRefIn_.read();
     if(port.m_basePosRefIn_.isNew()) port.m_basePosRefIn_.read();
     if(port.m_baseRpyRefIn_.isNew()) port.m_baseRpyRefIn_.read();
@@ -129,76 +141,77 @@ namespace PrimitiveMotionLevelControllerImpl {
   }
 
   // calc reference state (without ee. q, basepos and baserpy only)
-  void calcReferenceRobot(const PrimitiveMotionLevelController::Ports& port, cnoid::BodyPtr& robot) {
-    if(port.m_qRef_.length() == robot->numJoints()){
+  void calcReferenceRobot(const std::string& instance_name, const PrimitiveMotionLevelController::Ports& port, cnoid::BodyPtr& robot) {
+    if(port.m_qRef_.data.length() == robot->numJoints()){
       for ( int i = 0; i < robot->numJoints(); i++ ){
         robot->joint(i)->q() = port.m_qRef_.data[i];
       }
     }
-    robot->p()[0] = port.m_basePosRef_.data.x;
-    robot->p()[1] = port.m_basePosRef_.data.y;
-    robot->p()[2] = port.m_basePosRef_.data.z;
+    robot->rootLink()->p()[0] = port.m_basePosRef_.data.x;
+    robot->rootLink()->p()[1] = port.m_basePosRef_.data.y;
+    robot->rootLink()->p()[2] = port.m_basePosRef_.data.z;
     robot->rootLink()->R() = cnoid::rotFromRpy(port.m_baseRpyRef_.data.r, port.m_baseRpyRef_.data.p, port.m_baseRpyRef_.data.y);
     robot->calcForwardKinematics();
   }
 
   // calc actial state from inport
-  void calcActualRobot(const PrimitiveMotionLevelController::Ports& port, cnoid::BodyPtr& robot_act) {
-    if(port.m_qAct_.length() == robot_act->numJoints()){
+  void calcActualRobot(const std::string& instance_name, const PrimitiveMotionLevelController::Ports& port, cnoid::BodyPtr& robot_act) {
+    if(port.m_qAct_.data.length() == robot_act->numJoints()){
       for ( int i = 0; i < robot_act->numJoints(); i++ ){
         robot_act->joint(i)->q() = port.m_qAct_.data[i];
       }
       robot_act->calcForwardKinematics();
 
       cnoid::AccelerationSensorPtr imu = robot_act->findDevice<cnoid::AccelerationSensor>("gyrometer");
-      cnoid::Matrix3 imuR = imu_act->link()->R() * imu_act->R_local();
+      cnoid::Matrix3 imuR = imu->link()->R() * imu->R_local();
       cnoid::Matrix3 actR = cnoid::rotFromRpy(port.m_imuAct_.data.r, port.m_imuAct_.data.p, port.m_imuAct_.data.y);
-      robot_act->rootLink()->R = (actR * (imuR.transpose() * robot_act->rootLink()->R())).eval();
+      robot_act->rootLink()->R() = (actR * (imuR.transpose() * robot_act->rootLink()->R())).eval();
       robot_act->calcForwardKinematics();
     }
   }
 
-  void getPrimitiveCommand(const PrimitiveMotionLevelController::Ports& port, PrimitiveMotionLevelController::frame& fixedFrame, bool& fixedFrameWarped, std::map<std::string, std::shared_ptr<PrimitiveMotionLevelController::PrimitiveState> >& primitiveStateMap) {
+  void getPrimitiveCommand(const std::string& instance_name, const PrimitiveMotionLevelController::Ports& port, PrimitiveMotionLevelController::frame& fixedFrame, double dt, bool& fixedFrameWarped, std::map<std::string, std::shared_ptr<PrimitiveMotionLevelController::PrimitiveState> >& primitiveStateMap) {
 
     // fixed frame
-    if(fixedFrame.parentLinkName != port.m_primitiveCommandRef_.fixedFrame.parentLinkName){
+    if(fixedFrame.parentLinkName_ != std::string(port.m_primitiveCommandRef_.fixedFrame.parentLinkName)){
       fixedFrameWarped = true;
     }else{
       fixedFrameWarped = false;
     }
 
-    fixedFrame.parentLinkName = port.m_primitiveCommandRef_.fixedFrame.parentLinkName;
-    fixedFrame.localPose.translation()[0] = port.m_primitiveCommandRef_.fixedFrame.localPose.position.x;
-    fixedFrame.localPose.translation()[1] = port.m_primitiveCommandRef_.fixedFrame.localPose.position.y;
-    fixedFrame.localPose.translation()[2] = port.m_primitiveCommandRef_.fixedFrame.localPose.position.z;
-    fixedFrame.localPose.linear() = cnoid::rotFromRpy(port.m_primitiveCommandRef_.fixedFrame.localPose.orientation.r,port.m_primitiveCommandRef_.fixedFrame.localPose.orientation.p,port.m_primitiveCommandRef_.fixedFrame.localPose.orientation.y);
+    fixedFrame.parentLinkName_ = port.m_primitiveCommandRef_.fixedFrame.parentLinkName;
+    fixedFrame.localPose_.translation()[0] = port.m_primitiveCommandRef_.fixedFrame.localPose.position.x;
+    fixedFrame.localPose_.translation()[1] = port.m_primitiveCommandRef_.fixedFrame.localPose.position.y;
+    fixedFrame.localPose_.translation()[2] = port.m_primitiveCommandRef_.fixedFrame.localPose.position.z;
+    fixedFrame.localPose_.linear() = cnoid::rotFromRpy(port.m_primitiveCommandRef_.fixedFrame.localPose.orientation.r,port.m_primitiveCommandRef_.fixedFrame.localPose.orientation.p,port.m_primitiveCommandRef_.fixedFrame.localPose.orientation.y);
 
     // 消滅したEndEffectorを削除
     for(std::map<std::string, std::shared_ptr<PrimitiveMotionLevelController::PrimitiveState> >::iterator it = primitiveStateMap.begin(); it != primitiveStateMap.end(); ) {
-      if (std::find_if(port.m_primitiveCommandRef_.command.data.begin(),port.m_primitiveCommandRef_.command.data.end(),[&](WholeBodyMasterSlaveChoreonoidIdl::primitiveState x){return x.name==it->first;}) == port.m_primitiveCommandRef_.command.data.end()) {
-        it = primitiveStateMap.erase(it);
+      bool found = false;
+      for(size_t i=0;i<port.m_primitiveCommandRef_.command.data.length();i++) {
+        if(std::string(port.m_primitiveCommandRef_.command.data[i].name)==it->first) found = true;
       }
-      else {
-        ++it;
-      }
+      if (!found) it = primitiveStateMap.erase(it);
+      else ++it;
     }
     // 増加したEndEffectorの反映
     for(size_t i=0;i<port.m_primitiveCommandRef_.command.data.length();i++){
-      if(primitiveStateMap.find(port.m_primitiveCommandRef_.command.data[i])==primitiveStateMap.end()){
-        primitiveStateMap[port.m_primitiveCommandRef_.command.data[i].name] = std::make_shared<PrimitiveMotionLevelController::PrimitiveState>(port.m_primitiveCommandRef_.command.data[i].name);
+      if(primitiveStateMap.find(std::string(port.m_primitiveCommandRef_.command.data[i].name))==primitiveStateMap.end()){
+        primitiveStateMap[std::string(port.m_primitiveCommandRef_.command.data[i].name)] = std::make_shared<PrimitiveMotionLevelController::PrimitiveState>(std::string(port.m_primitiveCommandRef_.command.data[i].name));
       }
     }
     // 各指令値の反映
     for(size_t i=0;i<port.m_primitiveCommandRef_.command.data.length();i++){
-      WholeBodyMasterSlaveChoreonoidIdl::PrimitiveState& idl = primitiveStateMap[port.m_primitiveCommandRef_.command.data[i]];
-      std::shared_ptr<PrimitiveMotionLevelController::PrimitiveState> state = primitiveStateMap[command.name];
+      const WholeBodyMasterSlaveChoreonoidIdl::PrimitiveState& idl = port.m_primitiveCommandRef_.command.data[i];
+      std::shared_ptr<PrimitiveMotionLevelController::PrimitiveState> state = primitiveStateMap[std::string(idl.name)];
       state->updateFromIdl(idl);
+      state->updateTargetForOneStep(dt);
     }
   }
 
-  void moveActualRobotToFixedFrame(const PrimitiveMotionLevelController::frame& fixedFrame, const cnoid::BodyPtr& robot_ref, cnoid::BodyPtr& robot_act) {
+  void moveActualRobotToFixedFrame(const std::string& instance_name, const PrimitiveMotionLevelController::frame& fixedFrame, const cnoid::BodyPtr& robot_ref, cnoid::BodyPtr& robot_act) {
     if(!robot_ref->link(fixedFrame.parentLinkName_)) {
-      std::cerr << "[PrimitiveMotionLevelController::moveActualRobotToFixedFrame] link " << fixedFrame.parentLinkName_ << " not found" << std::endl;
+      std::cerr << "\x1b[31m[" << instance_name << "] " << "link " << fixedFrame.parentLinkName_ << " not found" << "\x1b[39m" << std::endl;
       return;
     }
     cnoid::Position fixedFrameRef = robot_ref->link(fixedFrame.parentLinkName_)->T() * fixedFrame.localPose_;
@@ -210,10 +223,10 @@ namespace PrimitiveMotionLevelControllerImpl {
       rot.setFromTwoVectors(trans.linear() * Eigen::Vector3d::UnitZ(), Eigen::Vector3d::UnitZ());
       trans.linear() = (rot * trans.linear()).eval();
     };
-    robot_act->rootLink()->T() = (trans * robot_act->rootLink()->T()).eval();
+    robot_act->rootLink()->T() = trans * robot_act->rootLink()->T();
   }
 
-  void processTransition(PrimitiveMotionLevelController::ControlMode& mode, std::shared_ptr<cpp_filters::TwoPointInterpolator<double> >& outputRatioInterpolator, double dt){
+  void processModeTransition(const std::string& instance_name, PrimitiveMotionLevelController::ControlMode& mode, std::shared_ptr<cpp_filters::TwoPointInterpolator<double> >& outputRatioInterpolator, const double dt){
     double tmp;
     switch(mode.now()){
     case PrimitiveMotionLevelController::ControlMode::MODE_SYNC_TO_CONTROL:
@@ -221,7 +234,7 @@ namespace PrimitiveMotionLevelControllerImpl {
         outputRatioInterpolator->setGoal(1.0, 3.0);
       }
       if (!outputRatioInterpolator->isEmpty() ){
-        outputRatioInterpolator->get(&tmp, dt);
+        outputRatioInterpolator->get(tmp, dt);
       }else{
         mode.setNextMode(PrimitiveMotionLevelController::ControlMode::MODE_CONTROL);
       }
@@ -231,7 +244,7 @@ namespace PrimitiveMotionLevelControllerImpl {
         outputRatioInterpolator->setGoal(0.0, 3.0, true);
       }
       if (outputRatioInterpolator->isEmpty()) {
-        outputRatioInterpolator->get(&tmp, dt);
+        outputRatioInterpolator->get(tmp, dt);
       }else{
         mode.setNextMode(PrimitiveMotionLevelController::ControlMode::MODE_IDLE);
       }
@@ -240,11 +253,15 @@ namespace PrimitiveMotionLevelControllerImpl {
     mode.update();
   }
 
-  void preProcessForControl() {
+  void preProcessForControl(const std::string& instance_name) {
 
   }
 
-  void passThrough(const cnoid::BodyPtr& robot_ref, cnoid::BodyPtr& robot_com, std::unordered_map<std::string, std::shared_ptr<cpp_filters::TwoPointInterpolator<double> > > outputSmoothingInterpolatorMap){
+  void processControl(const std::string& instance_name) {
+
+  }
+
+  void passThrough(const std::string& instance_name, const cnoid::BodyPtr& robot_ref, cnoid::BodyPtr& robot_com, std::unordered_map<std::string, std::shared_ptr<cpp_filters::TwoPointInterpolator<double> > > outputSmoothingInterpolatorMap){
     robot_com->rootLink()->T() = robot_ref->rootLink()->T();
     for(size_t i=0;i<robot_com->numJoints();i++) {
       robot_com->joint(i)->q() = robot_ref->joint(i)->q();
@@ -257,14 +274,14 @@ namespace PrimitiveMotionLevelControllerImpl {
     robot_com->calcForwardKinematics();
   }
 
-  void calcOutputPorts(PrimitiveMotionLevelController::Ports& port, double output_ratio, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_com) {
+  void calcOutputPorts(const std::string& instance_name, PrimitiveMotionLevelController::Ports& port, double output_ratio, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_com) {
     // qCom
     if (port.m_qRef_.data.length() == robot_com->numJoints()){
       port.m_qCom_.data.length(robot_com->numJoints());
       for (int i = 0; i < robot_com->numJoints(); i++ ){
         port.m_qCom_.data[i] = output_ratio * robot_com->joint(i)->q() + (1 - output_ratio) * robot_ref->joint(i)->q();
       }
-      port.m_qCom.tm = port.m_qRef.tm;
+      port.m_qCom_.tm = port.m_qRef_.tm;
       port.m_qComOut_.write();
     }
     // basePos
@@ -272,365 +289,339 @@ namespace PrimitiveMotionLevelControllerImpl {
     port.m_basePosCom_.data.x = ouputBasePos[0];
     port.m_basePosCom_.data.y = ouputBasePos[1];
     port.m_basePosCom_.data.z = ouputBasePos[2];
-    m_basePosCom.tm = m_qRef.tm;
-    m_basePosComOut_.write();
+    port.m_basePosCom_.tm = port.m_qRef_.tm;
+    port.m_basePosComOut_.write();
     // baseRpy
-    cnoid::Vector3 outputBaseRpy = cnoid::rpyFromRot(cnoid::Quaterniond(robot_ref->rootLink()->R()).slerp(output_ratio, robot_com->rootLink()->R()));
+    cnoid::Vector3 outputBaseRpy = cnoid::rpyFromRot(cnoid::Matrix3(cnoid::Quaterniond(robot_ref->rootLink()->R()).slerp(output_ratio, cnoid::Quaterniond(robot_com->rootLink()->R()))));
     port.m_baseRpyCom_.data.r = outputBaseRpy[0];
     port.m_baseRpyCom_.data.p = outputBaseRpy[1];
     port.m_baseRpyCom_.data.y = outputBaseRpy[2];
-    port.m_baseRpyCom_.tm = m_qRef.tm;
+    port.m_baseRpyCom_.tm = port.m_qRef_.tm;
     port.m_baseRpyComOut_.write();
-    // eestate TODO
-    port.m_eeStateAct_.tm = m_qRef.tm;
-    port.m_eeStateActOut_.write();
+
   }
 
 }
 
 RTC::ReturnCode_t PrimitiveMotionLevelController::onExecute(RTC::UniqueId ec_id){
 
-  time_report_str.clear();
-  clock_gettime(CLOCK_REALTIME, &startT);
+  std::string instance_name = std::string(this->m_profile.instance_name);
 
   // read ports
-  PrimitiveMotionLevelControllerImpl::readPorts(this->port_);
+  PrimitiveMotionLevelControllerImpl::readPorts(instance_name, this->ports_);
 
   // calc reference state from inport (without ee. q, basepos and baserpy only)
-  PrimitiveMotionLevelControllerImpl::calcReferenceRobot(this->port_, this->m_robot_ref_);
+  PrimitiveMotionLevelControllerImpl::calcReferenceRobot(instance_name, this->ports_, this->m_robot_ref_);
 
   // calc actial state from inport
-  PrimitiveMotionLevelControllerImpl::calcActualRobot(this->port_, this->m_robot_act_);
+  PrimitiveMotionLevelControllerImpl::calcActualRobot(instance_name, this->ports_, this->m_robot_act_);
 
   // get primitive motion level command
   bool fixedFrameWarped = false;
-  PrimitiveMotionLevelControllerImpl::getPrimitiveCommand(this->port_, this->fixedFrame_, fixedFrameWarped, this->primitiveStateMap_);
+  PrimitiveMotionLevelControllerImpl::getPrimitiveCommand(instance_name, this->ports_, this->fixedFrame_, this->m_dt_, fixedFrameWarped, this->primitiveStateMap_);
 
   // match frame of actual robot to reference robot.
-  PrimitiveMotionLevelControllerImpl::moveActualRobotToFixedFrame(this->fixedFrame_, this->m_robot_ref_, this->m_robot_act_);
+  PrimitiveMotionLevelControllerImpl::moveActualRobotToFixedFrame(instance_name, this->fixedFrame_, this->m_robot_ref_, this->m_robot_act_);
 
   // mode遷移を実行
-  PrimitiveMotionLevelControllerImpl::processTransition(this->mode_, this->outputRatioInterpolator_, this->m_dt_);
+  PrimitiveMotionLevelControllerImpl::processModeTransition(instance_name, this->mode_, this->outputRatioInterpolator_, this->m_dt_);
 
   if(this->mode_.isRunning()) {
     if(this->mode_.isInitialize()){
-      PrimitiveMotionLevelControllerImpl::preProcessForControl();
-    }\
-    wbms->update();//////HumanSynchronizerの主要処理
+      PrimitiveMotionLevelControllerImpl::preProcessForControl(instance_name);
+    }
+    PrimitiveMotionLevelControllerImpl::processControl(instance_name);
 
-    solveFullbodyIK(wbms->rp_ref_out);
-
-    smoothingJointAngles(fik->m_robot, m_robot_vsafe);
   } else {
     // robot_refがそのままrobot_comになる
-    PrimitiveMotionLevelControllerImpl::passThrough(this->m_robot_ref_, this->m_robot_com_, this->outputSmoothingInterpolatorMap_);
+    PrimitiveMotionLevelControllerImpl::passThrough(instance_name, this->m_robot_ref_, this->m_robot_com_, this->outputSmoothingInterpolatorMap_);
   }
 
   // write outport
   double output_ratio; this->outputRatioInterpolator_->get(output_ratio);
-  PrimitiveMotionLevelControllerImpl::calcOutputPorts(this->port_, output_ratio, this->m_robot_ref_, this->m_robot_com_);
+  PrimitiveMotionLevelControllerImpl::calcOutputPorts(instance_name, this->ports_, output_ratio, this->m_robot_ref_, this->m_robot_com_);
 
-  loop++;
+  this->loop_++;
   return RTC::RTC_OK;
 }
 
 
-void PrimitiveMotionLevelController::solveFullbodyIK(HumanPose& ref){
-    std::vector<IKConstraint> ikc_list;
-    if(wbms->legged){ // free baselink, lleg, rleg, larm, rarm setting
-        {
-            IKConstraint tmp;
-            tmp.target_link_name    = fik->m_robot->rootLink()->name;
-            tmp.localPos            = hrp::Vector3::Zero();
-            tmp.localR              = hrp::Matrix33::Identity();
-            tmp.targetPos           = hrp::to_Vector3(m_basePos.data);// will be ignored by selection_vec
-            tmp.targetRpy           = ref.stgt("com").abs.rpy();
-            tmp.constraint_weight   << 0, 0, 0, 0.1, 0.1, 0.1;
-            tmp.rot_precision       = deg2rad(3);
-            ikc_list.push_back(tmp);
-        }
-        for(auto leg : {"lleg","rleg"}){
-            if(has(wbms->wp.use_targets, leg)){
-                IKConstraint tmp;
-                tmp.target_link_name    = ee_ikc_map[leg].target_link_name;
-                tmp.localPos            = ee_ikc_map[leg].localPos;
-                tmp.localR              = ee_ikc_map[leg].localR;
-                tmp.targetPos           = ref.stgt(leg).abs.p;
-                tmp.targetRpy           = ref.stgt(leg).abs.rpy();
-                tmp.constraint_weight   = wbms->rp_ref_out.tgt[rf].is_contact() ? hrp::dvector6::Constant(3) : hrp::dvector6::Constant(0.1);
-                ikc_list.push_back(tmp);
-            }
-        }
-        for(auto arm : {"larm","rarm"}){
-            if(has(wbms->wp.use_targets, arm)){
-                IKConstraint tmp;
-                tmp.target_link_name    = ee_ikc_map[arm].target_link_name;
-                tmp.localPos            = ee_ikc_map[arm].localPos;
-                tmp.localR              = ee_ikc_map[arm].localR;
-                tmp.targetPos           = ref.stgt(arm).abs.p;
-                tmp.targetRpy           = ref.stgt(arm).abs.rpy();
-                tmp.constraint_weight   = hrp::dvector6::Constant(0.1);
-                tmp.pos_precision       = 3e-3;
-                tmp.rot_precision       = deg2rad(3);
-                ikc_list.push_back(tmp);
-            }
-        }
-        if(has(wbms->wp.use_targets, "com")){
-            IKConstraint tmp;
-            tmp.target_link_name    = "COM";
-            tmp.localPos            = hrp::Vector3::Zero();
-            tmp.localR              = hrp::Matrix33::Identity();
-            tmp.targetPos           = ref.stgt("com").abs.p + static_balancing_com_offset;// COM height will not be constraint
-            tmp.targetRpy           = hrp::Vector3::Zero();//reference angular momentum
-            tmp.constraint_weight   << 3,3,0.01,0,0,0;
-            ikc_list.push_back(tmp);
-        }
-    }else{ // fixed baselink, larm, rarm setting
-        {
-            IKConstraint tmp;
-            tmp.target_link_name    = fik->m_robot->rootLink()->name;
-            tmp.localPos            = hrp::Vector3::Zero();
-            tmp.localR              = hrp::Matrix33::Identity();
-            tmp.targetPos           = hrp::to_Vector3(m_basePos.data);// will be ignored by selection_vec
-            tmp.targetRpy           = hrp::Vector3::Zero();
-            tmp.constraint_weight   << hrp::dvector6::Constant(1);
-            tmp.rot_precision       = deg2rad(3);
-            ikc_list.push_back(tmp);
-        }
-        for(auto arm : {"larm","rarm"}){
-            if(has(wbms->wp.use_targets, arm)){
-                IKConstraint tmp;
-                tmp.target_link_name    = ee_ikc_map[arm].target_link_name;
-                tmp.localPos            = ee_ikc_map[arm].localPos;
-                tmp.localR              = ee_ikc_map[arm].localR;
-                tmp.targetPos           = ref.stgt(arm).abs.p;
-                tmp.targetRpy           = ref.stgt(arm).abs.rpy();
-                tmp.constraint_weight   << 1, 1, 1, 0.1, 0.1, 0.1;
-                tmp.pos_precision       = 3e-3;
-                tmp.rot_precision       = deg2rad(3);
-                ikc_list.push_back(tmp);
-            }
-        }
-    }
-    // common head setting
-    if(has(wbms->wp.use_targets, "head")){
-        if(fik->m_robot->link("HEAD_JOINT1") != NULL){
-            IKConstraint tmp;
-            tmp.target_link_name = "HEAD_JOINT1";
-            tmp.targetRpy = ref.stgt("head").abs.rpy();
-            tmp.constraint_weight << 0,0,0,0,0.1,0.1;
-            tmp.rot_precision = deg2rad(1);
-            ikc_list.push_back(tmp);
-        }
-        if(fik->m_robot->link("HEAD_P") != NULL){
-            IKConstraint tmp;
-            tmp.target_link_name = "HEAD_P";
-            tmp.targetRpy = ref.stgt("head").abs.rpy();
-            tmp.constraint_weight << 0,0,0,0,0.1,0.1;
-            tmp.rot_precision = deg2rad(1);
-            ikc_list.push_back(tmp);
-        }
-    }
-    if(wbms->rp_ref_out.tgt[rf].is_contact()){
-        sccp->avoid_priority.head(12).head(6).fill(4);
-    }else{
-        sccp->avoid_priority.head(12).head(6).fill(3);
-    }
-    if(wbms->rp_ref_out.tgt[lf].is_contact()){
-        sccp->avoid_priority.head(12).tail(6).fill(4);
-    }else{
-        sccp->avoid_priority.head(12).tail(6).fill(3);
-    }
+// void PrimitiveMotionLevelController::solveFullbodyIK(HumanPose& ref){
+//     std::vector<IKConstraint> ikc_list;
+//     if(wbms->legged){ // free baselink, lleg, rleg, larm, rarm setting
+//         {
+//             IKConstraint tmp;
+//             tmp.target_link_name    = fik->m_robot->rootLink()->name;
+//             tmp.localPos            = hrp::Vector3::Zero();
+//             tmp.localR              = hrp::Matrix33::Identity();
+//             tmp.targetPos           = hrp::to_Vector3(m_basePos.data);// will be ignored by selection_vec
+//             tmp.targetRpy           = ref.stgt("com").abs.rpy();
+//             tmp.constraint_weight   << 0, 0, 0, 0.1, 0.1, 0.1;
+//             tmp.rot_precision       = deg2rad(3);
+//             ikc_list.push_back(tmp);
+//         }
+//         for(auto leg : {"lleg","rleg"}){
+//             if(has(wbms->wp.use_targets, leg)){
+//                 IKConstraint tmp;
+//                 tmp.target_link_name    = ee_ikc_map[leg].target_link_name;
+//                 tmp.localPos            = ee_ikc_map[leg].localPos;
+//                 tmp.localR              = ee_ikc_map[leg].localR;
+//                 tmp.targetPos           = ref.stgt(leg).abs.p;
+//                 tmp.targetRpy           = ref.stgt(leg).abs.rpy();
+//                 tmp.constraint_weight   = wbms->rp_ref_out.tgt[rf].is_contact() ? hrp::dvector6::Constant(3) : hrp::dvector6::Constant(0.1);
+//                 ikc_list.push_back(tmp);
+//             }
+//         }
+//         for(auto arm : {"larm","rarm"}){
+//             if(has(wbms->wp.use_targets, arm)){
+//                 IKConstraint tmp;
+//                 tmp.target_link_name    = ee_ikc_map[arm].target_link_name;
+//                 tmp.localPos            = ee_ikc_map[arm].localPos;
+//                 tmp.localR              = ee_ikc_map[arm].localR;
+//                 tmp.targetPos           = ref.stgt(arm).abs.p;
+//                 tmp.targetRpy           = ref.stgt(arm).abs.rpy();
+//                 tmp.constraint_weight   = hrp::dvector6::Constant(0.1);
+//                 tmp.pos_precision       = 3e-3;
+//                 tmp.rot_precision       = deg2rad(3);
+//                 ikc_list.push_back(tmp);
+//             }
+//         }
+//         if(has(wbms->wp.use_targets, "com")){
+//             IKConstraint tmp;
+//             tmp.target_link_name    = "COM";
+//             tmp.localPos            = hrp::Vector3::Zero();
+//             tmp.localR              = hrp::Matrix33::Identity();
+//             tmp.targetPos           = ref.stgt("com").abs.p + static_balancing_com_offset;// COM height will not be constraint
+//             tmp.targetRpy           = hrp::Vector3::Zero();//reference angular momentum
+//             tmp.constraint_weight   << 3,3,0.01,0,0,0;
+//             ikc_list.push_back(tmp);
+//         }
+//     }else{ // fixed baselink, larm, rarm setting
+//         {
+//             IKConstraint tmp;
+//             tmp.target_link_name    = fik->m_robot->rootLink()->name;
+//             tmp.localPos            = hrp::Vector3::Zero();
+//             tmp.localR              = hrp::Matrix33::Identity();
+//             tmp.targetPos           = hrp::to_Vector3(m_basePos.data);// will be ignored by selection_vec
+//             tmp.targetRpy           = hrp::Vector3::Zero();
+//             tmp.constraint_weight   << hrp::dvector6::Constant(1);
+//             tmp.rot_precision       = deg2rad(3);
+//             ikc_list.push_back(tmp);
+//         }
+//         for(auto arm : {"larm","rarm"}){
+//             if(has(wbms->wp.use_targets, arm)){
+//                 IKConstraint tmp;
+//                 tmp.target_link_name    = ee_ikc_map[arm].target_link_name;
+//                 tmp.localPos            = ee_ikc_map[arm].localPos;
+//                 tmp.localR              = ee_ikc_map[arm].localR;
+//                 tmp.targetPos           = ref.stgt(arm).abs.p;
+//                 tmp.targetRpy           = ref.stgt(arm).abs.rpy();
+//                 tmp.constraint_weight   << 1, 1, 1, 0.1, 0.1, 0.1;
+//                 tmp.pos_precision       = 3e-3;
+//                 tmp.rot_precision       = deg2rad(3);
+//                 ikc_list.push_back(tmp);
+//             }
+//         }
+//     }
+//     // common head setting
+//     if(has(wbms->wp.use_targets, "head")){
+//         if(fik->m_robot->link("HEAD_JOINT1") != NULL){
+//             IKConstraint tmp;
+//             tmp.target_link_name = "HEAD_JOINT1";
+//             tmp.targetRpy = ref.stgt("head").abs.rpy();
+//             tmp.constraint_weight << 0,0,0,0,0.1,0.1;
+//             tmp.rot_precision = deg2rad(1);
+//             ikc_list.push_back(tmp);
+//         }
+//         if(fik->m_robot->link("HEAD_P") != NULL){
+//             IKConstraint tmp;
+//             tmp.target_link_name = "HEAD_P";
+//             tmp.targetRpy = ref.stgt("head").abs.rpy();
+//             tmp.constraint_weight << 0,0,0,0,0.1,0.1;
+//             tmp.rot_precision = deg2rad(1);
+//             ikc_list.push_back(tmp);
+//         }
+//     }
+//     if(wbms->rp_ref_out.tgt[rf].is_contact()){
+//         sccp->avoid_priority.head(12).head(6).fill(4);
+//     }else{
+//         sccp->avoid_priority.head(12).head(6).fill(3);
+//     }
+//     if(wbms->rp_ref_out.tgt[lf].is_contact()){
+//         sccp->avoid_priority.head(12).tail(6).fill(4);
+//     }else{
+//         sccp->avoid_priority.head(12).tail(6).fill(3);
+//     }
 
-//    sccp->checkCollision();
+// //    sccp->checkCollision();
 
-    for(int i=0;i<sccp->collision_info_list.size();i++){
-        IKConstraint tmp;
-        double val_w = (sccp->collision_info_list[i].dist_safe - sccp->collision_info_list[i].dist_cur)*1e2;
-        LIMIT_MAX(val_w, 3);
-        tmp.constraint_weight << val_w,val_w,val_w,0,0,0;
-//        tmp.constraint_weight << 3,3,3,0,0,0;
-        double margin = 1e-3;
-        if(sccp->avoid_priority(sccp->collision_info_list[i].id0) > sccp->avoid_priority(sccp->collision_info_list[i].id1)){
-            tmp.localPos = sccp->collision_info_list[i].cp1_local;
-            tmp.target_link_name = fik->m_robot->joint(sccp->collision_info_list[i].id1)->name;
-            tmp.targetPos = sccp->collision_info_list[i].cp0_wld + (sccp->collision_info_list[i].cp1_wld - sccp->collision_info_list[i].cp0_wld).normalized() * (sccp->collision_info_list[i].dist_safe + margin);
-            ikc_list.push_back(tmp);
-        }else if(sccp->avoid_priority(sccp->collision_info_list[i].id0) < sccp->avoid_priority(sccp->collision_info_list[i].id1)){
-            tmp.localPos = sccp->collision_info_list[i].cp0_local;
-            tmp.target_link_name = fik->m_robot->joint(sccp->collision_info_list[i].id0)->name;
-            tmp.targetPos = sccp->collision_info_list[i].cp1_wld + (sccp->collision_info_list[i].cp0_wld - sccp->collision_info_list[i].cp1_wld).normalized() * (sccp->collision_info_list[i].dist_safe + margin);
-            ikc_list.push_back(tmp);
-        }else{
-            tmp.localPos = sccp->collision_info_list[i].cp1_local;
-            tmp.target_link_name = fik->m_robot->joint(sccp->collision_info_list[i].id1)->name;
-            tmp.targetPos = sccp->collision_info_list[i].cp0_wld + (sccp->collision_info_list[i].cp1_wld - sccp->collision_info_list[i].cp0_wld).normalized() * (sccp->collision_info_list[i].dist_safe + margin);
-            ikc_list.push_back(tmp);
-            tmp.localPos = sccp->collision_info_list[i].cp0_local;
-            tmp.target_link_name = fik->m_robot->joint(sccp->collision_info_list[i].id0)->name;
-            tmp.targetPos = sccp->collision_info_list[i].cp1_wld + (sccp->collision_info_list[i].cp0_wld - sccp->collision_info_list[i].cp1_wld).normalized() * (sccp->collision_info_list[i].dist_safe + margin);
-            ikc_list.push_back(tmp);
-        }
-//        ikc_list[3].constraint_weight =  hrp::dvector6::Constant(1e-4);
-//        ikc_list[4].constraint_weight =  hrp::dvector6::Constant(1e-4);
-    }
+//     for(int i=0;i<sccp->collision_info_list.size();i++){
+//         IKConstraint tmp;
+//         double val_w = (sccp->collision_info_list[i].dist_safe - sccp->collision_info_list[i].dist_cur)*1e2;
+//         LIMIT_MAX(val_w, 3);
+//         tmp.constraint_weight << val_w,val_w,val_w,0,0,0;
+// //        tmp.constraint_weight << 3,3,3,0,0,0;
+//         double margin = 1e-3;
+//         if(sccp->avoid_priority(sccp->collision_info_list[i].id0) > sccp->avoid_priority(sccp->collision_info_list[i].id1)){
+//             tmp.localPos = sccp->collision_info_list[i].cp1_local;
+//             tmp.target_link_name = fik->m_robot->joint(sccp->collision_info_list[i].id1)->name;
+//             tmp.targetPos = sccp->collision_info_list[i].cp0_wld + (sccp->collision_info_list[i].cp1_wld - sccp->collision_info_list[i].cp0_wld).normalized() * (sccp->collision_info_list[i].dist_safe + margin);
+//             ikc_list.push_back(tmp);
+//         }else if(sccp->avoid_priority(sccp->collision_info_list[i].id0) < sccp->avoid_priority(sccp->collision_info_list[i].id1)){
+//             tmp.localPos = sccp->collision_info_list[i].cp0_local;
+//             tmp.target_link_name = fik->m_robot->joint(sccp->collision_info_list[i].id0)->name;
+//             tmp.targetPos = sccp->collision_info_list[i].cp1_wld + (sccp->collision_info_list[i].cp0_wld - sccp->collision_info_list[i].cp1_wld).normalized() * (sccp->collision_info_list[i].dist_safe + margin);
+//             ikc_list.push_back(tmp);
+//         }else{
+//             tmp.localPos = sccp->collision_info_list[i].cp1_local;
+//             tmp.target_link_name = fik->m_robot->joint(sccp->collision_info_list[i].id1)->name;
+//             tmp.targetPos = sccp->collision_info_list[i].cp0_wld + (sccp->collision_info_list[i].cp1_wld - sccp->collision_info_list[i].cp0_wld).normalized() * (sccp->collision_info_list[i].dist_safe + margin);
+//             ikc_list.push_back(tmp);
+//             tmp.localPos = sccp->collision_info_list[i].cp0_local;
+//             tmp.target_link_name = fik->m_robot->joint(sccp->collision_info_list[i].id0)->name;
+//             tmp.targetPos = sccp->collision_info_list[i].cp1_wld + (sccp->collision_info_list[i].cp0_wld - sccp->collision_info_list[i].cp1_wld).normalized() * (sccp->collision_info_list[i].dist_safe + margin);
+//             ikc_list.push_back(tmp);
+//         }
+// //        ikc_list[3].constraint_weight =  hrp::dvector6::Constant(1e-4);
+// //        ikc_list[4].constraint_weight =  hrp::dvector6::Constant(1e-4);
+//     }
 
-    if(loop%20==0){
-        if(sccp->collision_info_list.size()>0){
-            std::cout<<"pair:"<<std::endl;
-            for(int i=0;i<sccp->collision_info_list.size();i++){
-                std::cout<<fik->m_robot->joint(sccp->collision_info_list[i].id0)->name<<" "<<fik->m_robot->joint(sccp->collision_info_list[i].id1)->name<<endl;
-            }
-        }
-    }
+//     if(loop%20==0){
+//         if(sccp->collision_info_list.size()>0){
+//             std::cout<<"pair:"<<std::endl;
+//             for(int i=0;i<sccp->collision_info_list.size();i++){
+//                 std::cout<<fik->m_robot->joint(sccp->collision_info_list[i].id0)->name<<" "<<fik->m_robot->joint(sccp->collision_info_list[i].id1)->name<<endl;
+//             }
+//         }
+//     }
 
-    if( fik->m_robot->link("CHEST_JOINT0") != NULL) fik->dq_weight_all(fik->m_robot->link("CHEST_JOINT0")->jointId) = 1e3;//JAXON
-    if( fik->m_robot->link("CHEST_JOINT1") != NULL) fik->dq_weight_all(fik->m_robot->link("CHEST_JOINT1")->jointId) = 1e3;
-//    if( fik->m_robot->link("CHEST_JOINT2") != NULL) fik->dq_weight_all(fik->m_robot->link("CHEST_JOINT2")->jointId) = 10;
-    if( fik->m_robot->link("CHEST_JOINT2") != NULL) fik->dq_weight_all(fik->m_robot->link("CHEST_JOINT2")->jointId) = 0;//実機修理中
+//     if( fik->m_robot->link("CHEST_JOINT0") != NULL) fik->dq_weight_all(fik->m_robot->link("CHEST_JOINT0")->jointId) = 1e3;//JAXON
+//     if( fik->m_robot->link("CHEST_JOINT1") != NULL) fik->dq_weight_all(fik->m_robot->link("CHEST_JOINT1")->jointId) = 1e3;
+// //    if( fik->m_robot->link("CHEST_JOINT2") != NULL) fik->dq_weight_all(fik->m_robot->link("CHEST_JOINT2")->jointId) = 10;
+//     if( fik->m_robot->link("CHEST_JOINT2") != NULL) fik->dq_weight_all(fik->m_robot->link("CHEST_JOINT2")->jointId) = 0;//実機修理中
 
-    if( fik->m_robot->link("CHEST_JOINT0") != NULL) fik->m_robot->link("CHEST_JOINT0")->llimit = deg2rad(-8);
-    if( fik->m_robot->link("CHEST_JOINT0") != NULL) fik->m_robot->link("CHEST_JOINT0")->ulimit = deg2rad(8);
-    if( fik->m_robot->link("CHEST_JOINT1") != NULL) fik->m_robot->link("CHEST_JOINT1")->llimit = deg2rad(1);
-    if( fik->m_robot->link("CHEST_JOINT1") != NULL) fik->m_robot->link("CHEST_JOINT1")->ulimit = deg2rad(32);
+//     if( fik->m_robot->link("CHEST_JOINT0") != NULL) fik->m_robot->link("CHEST_JOINT0")->llimit = deg2rad(-8);
+//     if( fik->m_robot->link("CHEST_JOINT0") != NULL) fik->m_robot->link("CHEST_JOINT0")->ulimit = deg2rad(8);
+//     if( fik->m_robot->link("CHEST_JOINT1") != NULL) fik->m_robot->link("CHEST_JOINT1")->llimit = deg2rad(1);
+//     if( fik->m_robot->link("CHEST_JOINT1") != NULL) fik->m_robot->link("CHEST_JOINT1")->ulimit = deg2rad(32);
 
-    if( fik->m_robot->link("HEAD_JOINT0") != NULL) fik->m_robot->link("HEAD_JOINT0")->llimit = deg2rad(-20);
-    if( fik->m_robot->link("HEAD_JOINT0") != NULL) fik->m_robot->link("HEAD_JOINT0")->ulimit = deg2rad(20);
-    if( fik->m_robot->link("HEAD_JOINT1") != NULL) fik->m_robot->link("HEAD_JOINT1")->llimit = deg2rad(-15);
-    if( fik->m_robot->link("HEAD_JOINT1") != NULL) fik->m_robot->link("HEAD_JOINT1")->ulimit = deg2rad(35);
+//     if( fik->m_robot->link("HEAD_JOINT0") != NULL) fik->m_robot->link("HEAD_JOINT0")->llimit = deg2rad(-20);
+//     if( fik->m_robot->link("HEAD_JOINT0") != NULL) fik->m_robot->link("HEAD_JOINT0")->ulimit = deg2rad(20);
+//     if( fik->m_robot->link("HEAD_JOINT1") != NULL) fik->m_robot->link("HEAD_JOINT1")->llimit = deg2rad(-15);
+//     if( fik->m_robot->link("HEAD_JOINT1") != NULL) fik->m_robot->link("HEAD_JOINT1")->ulimit = deg2rad(35);
 
-    if( fik->m_robot->link("RARM_JOINT6") != NULL) fik->m_robot->link("RARM_JOINT6")->llimit = deg2rad(-59);
-    if( fik->m_robot->link("RARM_JOINT6") != NULL) fik->m_robot->link("RARM_JOINT6")->ulimit = deg2rad(59);
-    if( fik->m_robot->link("RARM_JOINT7") != NULL) fik->m_robot->link("RARM_JOINT7")->llimit = deg2rad(-61);
-    if( fik->m_robot->link("RARM_JOINT7") != NULL) fik->m_robot->link("RARM_JOINT7")->ulimit = deg2rad(58);
+//     if( fik->m_robot->link("RARM_JOINT6") != NULL) fik->m_robot->link("RARM_JOINT6")->llimit = deg2rad(-59);
+//     if( fik->m_robot->link("RARM_JOINT6") != NULL) fik->m_robot->link("RARM_JOINT6")->ulimit = deg2rad(59);
+//     if( fik->m_robot->link("RARM_JOINT7") != NULL) fik->m_robot->link("RARM_JOINT7")->llimit = deg2rad(-61);
+//     if( fik->m_robot->link("RARM_JOINT7") != NULL) fik->m_robot->link("RARM_JOINT7")->ulimit = deg2rad(58);
 
-    if( fik->m_robot->link("LARM_JOINT6") != NULL) fik->m_robot->link("LARM_JOINT6")->llimit = deg2rad(-59);
-    if( fik->m_robot->link("LARM_JOINT6") != NULL) fik->m_robot->link("LARM_JOINT6")->ulimit = deg2rad(59);
-    if( fik->m_robot->link("LARM_JOINT7") != NULL) fik->m_robot->link("LARM_JOINT7")->llimit = deg2rad(-61);
-    if( fik->m_robot->link("LARM_JOINT7") != NULL) fik->m_robot->link("LARM_JOINT7")->ulimit = deg2rad(58);
+//     if( fik->m_robot->link("LARM_JOINT6") != NULL) fik->m_robot->link("LARM_JOINT6")->llimit = deg2rad(-59);
+//     if( fik->m_robot->link("LARM_JOINT6") != NULL) fik->m_robot->link("LARM_JOINT6")->ulimit = deg2rad(59);
+//     if( fik->m_robot->link("LARM_JOINT7") != NULL) fik->m_robot->link("LARM_JOINT7")->llimit = deg2rad(-61);
+//     if( fik->m_robot->link("LARM_JOINT7") != NULL) fik->m_robot->link("LARM_JOINT7")->ulimit = deg2rad(58);
 
-    if( fik->m_robot->link("RARM_JOINT2") != NULL) fik->m_robot->link("RARM_JOINT2")->ulimit = deg2rad(-45);//脇内側の干渉回避
-    if( fik->m_robot->link("LARM_JOINT2") != NULL) fik->m_robot->link("LARM_JOINT2")->llimit = deg2rad(45);
-    if( fik->m_robot->link("RARM_JOINT2") != NULL) fik->m_robot->link("RARM_JOINT2")->llimit = deg2rad(-89);//肩グルン防止
-    if( fik->m_robot->link("LARM_JOINT2") != NULL) fik->m_robot->link("LARM_JOINT2")->ulimit = deg2rad(89);
-    if( fik->m_robot->link("RARM_JOINT4") != NULL) fik->m_robot->link("RARM_JOINT4")->ulimit = deg2rad(1);//肘逆折れ
-    if( fik->m_robot->link("LARM_JOINT4") != NULL) fik->m_robot->link("LARM_JOINT4")->ulimit = deg2rad(1);
-    if( fik->m_robot->link("RLEG_JOINT3") != NULL) fik->m_robot->link("RLEG_JOINT3")->llimit = deg2rad(40);//膝伸びきり防止のため
-    if( fik->m_robot->link("LLEG_JOINT3") != NULL) fik->m_robot->link("LLEG_JOINT3")->llimit = deg2rad(40);
+//     if( fik->m_robot->link("RARM_JOINT2") != NULL) fik->m_robot->link("RARM_JOINT2")->ulimit = deg2rad(-45);//脇内側の干渉回避
+//     if( fik->m_robot->link("LARM_JOINT2") != NULL) fik->m_robot->link("LARM_JOINT2")->llimit = deg2rad(45);
+//     if( fik->m_robot->link("RARM_JOINT2") != NULL) fik->m_robot->link("RARM_JOINT2")->llimit = deg2rad(-89);//肩グルン防止
+//     if( fik->m_robot->link("LARM_JOINT2") != NULL) fik->m_robot->link("LARM_JOINT2")->ulimit = deg2rad(89);
+//     if( fik->m_robot->link("RARM_JOINT4") != NULL) fik->m_robot->link("RARM_JOINT4")->ulimit = deg2rad(1);//肘逆折れ
+//     if( fik->m_robot->link("LARM_JOINT4") != NULL) fik->m_robot->link("LARM_JOINT4")->ulimit = deg2rad(1);
+//     if( fik->m_robot->link("RLEG_JOINT3") != NULL) fik->m_robot->link("RLEG_JOINT3")->llimit = deg2rad(40);//膝伸びきり防止のため
+//     if( fik->m_robot->link("LLEG_JOINT3") != NULL) fik->m_robot->link("LLEG_JOINT3")->llimit = deg2rad(40);
 
-    if( fik->m_robot->link("CHEST_Y") != NULL) fik->dq_weight_all(fik->m_robot->link("CHEST_Y")->jointId) = 10;//K
-    if( fik->m_robot->link("CHEST_P") != NULL) fik->dq_weight_all(fik->m_robot->link("CHEST_P")->jointId) = 10;
-    if( fik->m_robot->link("R_KNEE_P") != NULL) fik->m_robot->link("R_KNEE_P")->llimit = deg2rad(30);//膝伸びきり防止
-    if( fik->m_robot->link("L_KNEE_P") != NULL) fik->m_robot->link("L_KNEE_P")->llimit = deg2rad(30);
-    // if( fik->m_robot->link("R_WRIST_R") != NULL) fik->m_robot->link("R_WRIST_R")->llimit = deg2rad(-40);
-    // if( fik->m_robot->link("L_WRIST_R") != NULL) fik->m_robot->link("L_WRIST_R")->llimit = deg2rad(-40);
-    // if( fik->m_robot->link("R_WRIST_R") != NULL) fik->m_robot->link("R_WRIST_R")->ulimit = deg2rad(40);
-    // if( fik->m_robot->link("L_WRIST_R") != NULL) fik->m_robot->link("L_WRIST_R")->ulimit = deg2rad(40);
-    // if( fik->m_robot->link("R_WRIST_P") != NULL) fik->m_robot->link("R_WRIST_P")->llimit = deg2rad(-40);
-    // if( fik->m_robot->link("L_WRIST_P") != NULL) fik->m_robot->link("L_WRIST_P")->llimit = deg2rad(-40);
-    // if( fik->m_robot->link("R_WRIST_P") != NULL) fik->m_robot->link("R_WRIST_P")->ulimit = deg2rad(20);
-    // if( fik->m_robot->link("L_WRIST_P") != NULL) fik->m_robot->link("L_WRIST_P")->ulimit = deg2rad(20);
-    if( fik->m_robot->link("R_WRIST_P") != NULL) fik->m_robot->link("R_WRIST_P")->llimit = deg2rad(-80);
-    if( fik->m_robot->link("L_WRIST_P") != NULL) fik->m_robot->link("L_WRIST_P")->llimit = deg2rad(-80);
-    if( fik->m_robot->link("R_WRIST_P") != NULL) fik->m_robot->link("R_WRIST_P")->ulimit = deg2rad(45);
-    if( fik->m_robot->link("L_WRIST_P") != NULL) fik->m_robot->link("L_WRIST_P")->ulimit = deg2rad(45);
-    if( fik->m_robot->link("CHEST_Y") != NULL) fik->m_robot->link("CHEST_Y")->llimit = deg2rad(-20);
-    if( fik->m_robot->link("CHEST_Y") != NULL) fik->m_robot->link("CHEST_Y")->ulimit = deg2rad(20);
-    if( fik->m_robot->link("CHEST_P") != NULL) fik->m_robot->link("CHEST_P")->llimit = deg2rad(0);
-    if( fik->m_robot->link("CHEST_P") != NULL) fik->m_robot->link("CHEST_P")->ulimit = deg2rad(60);
-    if( fik->m_robot->link("HEAD_Y") != NULL) fik->m_robot->link("HEAD_Y")->llimit = deg2rad(-5);
-    if( fik->m_robot->link("HEAD_Y") != NULL) fik->m_robot->link("HEAD_Y")->ulimit = deg2rad(5);
-    if( fik->m_robot->link("HEAD_P") != NULL) fik->m_robot->link("HEAD_P")->llimit = deg2rad(0);
-    if( fik->m_robot->link("HEAD_P") != NULL) fik->m_robot->link("HEAD_P")->ulimit = deg2rad(60);
-    for(int i=0;i<fik->m_robot->numJoints();i++){
-        LIMIT_MINMAX(fik->m_robot->joint(i)->q, fik->m_robot->joint(i)->llimit, fik->m_robot->joint(i)->ulimit);
-    }
+//     if( fik->m_robot->link("CHEST_Y") != NULL) fik->dq_weight_all(fik->m_robot->link("CHEST_Y")->jointId) = 10;//K
+//     if( fik->m_robot->link("CHEST_P") != NULL) fik->dq_weight_all(fik->m_robot->link("CHEST_P")->jointId) = 10;
+//     if( fik->m_robot->link("R_KNEE_P") != NULL) fik->m_robot->link("R_KNEE_P")->llimit = deg2rad(30);//膝伸びきり防止
+//     if( fik->m_robot->link("L_KNEE_P") != NULL) fik->m_robot->link("L_KNEE_P")->llimit = deg2rad(30);
+//     // if( fik->m_robot->link("R_WRIST_R") != NULL) fik->m_robot->link("R_WRIST_R")->llimit = deg2rad(-40);
+//     // if( fik->m_robot->link("L_WRIST_R") != NULL) fik->m_robot->link("L_WRIST_R")->llimit = deg2rad(-40);
+//     // if( fik->m_robot->link("R_WRIST_R") != NULL) fik->m_robot->link("R_WRIST_R")->ulimit = deg2rad(40);
+//     // if( fik->m_robot->link("L_WRIST_R") != NULL) fik->m_robot->link("L_WRIST_R")->ulimit = deg2rad(40);
+//     // if( fik->m_robot->link("R_WRIST_P") != NULL) fik->m_robot->link("R_WRIST_P")->llimit = deg2rad(-40);
+//     // if( fik->m_robot->link("L_WRIST_P") != NULL) fik->m_robot->link("L_WRIST_P")->llimit = deg2rad(-40);
+//     // if( fik->m_robot->link("R_WRIST_P") != NULL) fik->m_robot->link("R_WRIST_P")->ulimit = deg2rad(20);
+//     // if( fik->m_robot->link("L_WRIST_P") != NULL) fik->m_robot->link("L_WRIST_P")->ulimit = deg2rad(20);
+//     if( fik->m_robot->link("R_WRIST_P") != NULL) fik->m_robot->link("R_WRIST_P")->llimit = deg2rad(-80);
+//     if( fik->m_robot->link("L_WRIST_P") != NULL) fik->m_robot->link("L_WRIST_P")->llimit = deg2rad(-80);
+//     if( fik->m_robot->link("R_WRIST_P") != NULL) fik->m_robot->link("R_WRIST_P")->ulimit = deg2rad(45);
+//     if( fik->m_robot->link("L_WRIST_P") != NULL) fik->m_robot->link("L_WRIST_P")->ulimit = deg2rad(45);
+//     if( fik->m_robot->link("CHEST_Y") != NULL) fik->m_robot->link("CHEST_Y")->llimit = deg2rad(-20);
+//     if( fik->m_robot->link("CHEST_Y") != NULL) fik->m_robot->link("CHEST_Y")->ulimit = deg2rad(20);
+//     if( fik->m_robot->link("CHEST_P") != NULL) fik->m_robot->link("CHEST_P")->llimit = deg2rad(0);
+//     if( fik->m_robot->link("CHEST_P") != NULL) fik->m_robot->link("CHEST_P")->ulimit = deg2rad(60);
+//     if( fik->m_robot->link("HEAD_Y") != NULL) fik->m_robot->link("HEAD_Y")->llimit = deg2rad(-5);
+//     if( fik->m_robot->link("HEAD_Y") != NULL) fik->m_robot->link("HEAD_Y")->ulimit = deg2rad(5);
+//     if( fik->m_robot->link("HEAD_P") != NULL) fik->m_robot->link("HEAD_P")->llimit = deg2rad(0);
+//     if( fik->m_robot->link("HEAD_P") != NULL) fik->m_robot->link("HEAD_P")->ulimit = deg2rad(60);
+//     for(int i=0;i<fik->m_robot->numJoints();i++){
+//         LIMIT_MINMAX(fik->m_robot->joint(i)->q, fik->m_robot->joint(i)->llimit, fik->m_robot->joint(i)->ulimit);
+//     }
 
-    fik->q_ref.head(m_qRef.data.length()) = hrp::to_dvector(m_qRef.data);//あえてseqからのbaselink poseは信用しない
+//     fik->q_ref.head(m_qRef.data.length()) = hrp::to_dvector(m_qRef.data);//あえてseqからのbaselink poseは信用しない
 
-    for(int i=0; i<fik->m_robot->numJoints(); i++){
-        if(!has(wbms->wp.use_joints, fik->m_robot->joint(i)->name)){
-            fik->dq_weight_all(i) = 0;
-            fik->m_robot->joint(i)->q = m_qRef.data[i];
-        }
-    }
+//     for(int i=0; i<fik->m_robot->numJoints(); i++){
+//         if(!has(wbms->wp.use_joints, fik->m_robot->joint(i)->name)){
+//             fik->dq_weight_all(i) = 0;
+//             fik->m_robot->joint(i)->q = m_qRef.data[i];
+//         }
+//     }
 
 
-    if(fik->m_robot->name().find("JAXON") != std::string::npos){
-        for(int i=0; i<fik->m_robot->numJoints(); i++){
-            if(fik->m_robot->joint(i)->name.find("ARM") != std::string::npos){
-                fik->q_ref_constraint_weight(i) = 1e-3;//腕だけ
-            }
-        }
-    }
+//     if(fik->m_robot->name().find("JAXON") != std::string::npos){
+//         for(int i=0; i<fik->m_robot->numJoints(); i++){
+//             if(fik->m_robot->joint(i)->name.find("ARM") != std::string::npos){
+//                 fik->q_ref_constraint_weight(i) = 1e-3;//腕だけ
+//             }
+//         }
+//     }
 
-    const int IK_MAX_LOOP = 1;
-    int loop_result = fik->solveFullbodyIKLoop(ikc_list, IK_MAX_LOOP);
-}
-
-void PrimitiveMotionLevelController::smoothingJointAngles(hrp::BodyPtr _robot, hrp::BodyPtr _robot_safe){
-    double goal_time = 0.0;
-    const double min_goal_time_offset = 0.3;
-
-    static hrp::dvector ans_state_vel = hrp::dvector::Zero(fik->numStates());
-
-    const hrp::dvector estimated_times_from_vel_limit = (hrp::getRobotStateVec(_robot) - hrp::getRobotStateVec(_robot_safe)).array().abs() / avg_q_vel.array();
-    const hrp::dvector estimated_times_from_acc_limit = ans_state_vel.array().abs() / avg_q_acc.array();
-    const double longest_estimated_time_from_vel_limit = estimated_times_from_vel_limit.maxCoeff();
-    const double longest_estimated_time_from_acc_limit = estimated_times_from_acc_limit.maxCoeff();
-    goal_time = hrp::Vector3(longest_estimated_time_from_vel_limit, longest_estimated_time_from_acc_limit, min_goal_time_offset).maxCoeff();
-
-    q_ip->setGoal(hrp::getRobotStateVec(_robot).data(), goal_time, true);
-    double tmp[fik->numStates()], tmpv[fik->numStates()];
-    if (!q_ip->isEmpty() ){  q_ip->get(tmp, tmpv, true);}
-    hrp::dvector ans_state = Eigen::Map<hrp::dvector>(tmp, fik->numStates());
-    ans_state_vel = Eigen::Map<hrp::dvector>(tmpv, fik->numStates());
-
-    hrp::setRobotStateVec(_robot_safe, ans_state);
-    for(int i=0; i<_robot_safe->numJoints(); i++){
-        LIMIT_MINMAX(_robot_safe->joint(i)->q, _robot_safe->joint(i)->llimit, _robot_safe->joint(i)->ulimit);
-    }
-
-    _robot_safe->calcForwardKinematics();
-}
+//     const int IK_MAX_LOOP = 1;
+//     int loop_result = fik->solveFullbodyIKLoop(ikc_list, IK_MAX_LOOP);
+// }
 
 
 bool PrimitiveMotionLevelController::startControl(){
-  if(this->mode_.now() == MODE_IDLE){
-    RTC_INFO_STREAM("startControl");
-    this->mode_.setNextMode(MODE_SYNC_TO_WBMS);
+  if(this->mode_.now() == ControlMode::MODE_IDLE){
+    std::cerr << "[" << m_profile.instance_name << "] "<< "startControl" << std::endl;
+    this->mode_.setNextMode(ControlMode::MODE_SYNC_TO_CONTROL);
     return true;
   }else{
-    RTC_WARN_STREAM("Invalid context to startControl");
+    std::cerr << "\x1b[31m[" << m_profile.instance_name << "] " << "Invalid context to startControl" << "\x1b[39m" << std::endl;
     return false;
   }
 }
 
 
 bool PrimitiveMotionLevelController::stopControl(){
-    if(this->mode_.now() == MODE_WBMS ){
-        RTC_INFO_STREAM("stopControl");
-        this->mode_.setNextMode(MODE_SYNC_TO_IDLE);
-        return true;
-    }else{
-        RTC_WARN_STREAM("Invalid context to stopControl");
-        return false;
-    }
+  if(this->mode_.now() == ControlMode::MODE_CONTROL ){
+    std::cerr << "[" << m_profile.instance_name << "] "<< "stopControl" << std::endl;
+    this->mode_.setNextMode(ControlMode::MODE_SYNC_TO_IDLE);
+    return true;
+  }else{
+    std::cerr << "\x1b[31m[" << m_profile.instance_name << "] " << "Invalid context to stopControl" << "\x1b[39m" << std::endl;
+    return false;
+  }
 }
 
 bool PrimitiveMotionLevelController::setParams(const WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param){
-    RTC_INFO_STREAM("setPrimitiveMotionLevelControllerParam");
-    return true;
+  std::cerr << "[" << m_profile.instance_name << "] "<< "setParams" << std::endl;
+  return true;
 }
 
 
 bool PrimitiveMotionLevelController::getParams(WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param){
-    RTC_INFO_STREAM("getPrimitiveMotionLevelControllerParam");
-    return true;
+  std::cerr << "[" << m_profile.instance_name << "] "<< "getParams" << std::endl;
+  return true;
 }
 
-RTC::ReturnCode_t PrimitiveMotionLevelController::onActivated(RTC::UniqueId ec_id){ RTC_INFO_STREAM("onActivated(" << ec_id << ")"); return RTC::RTC_OK; }
-RTC::ReturnCode_t PrimitiveMotionLevelController::onDeactivated(RTC::UniqueId ec_id){ RTC_INFO_STREAM("onDeactivated(" << ec_id << ")"); return RTC::RTC_OK; }
+RTC::ReturnCode_t PrimitiveMotionLevelController::onActivated(RTC::UniqueId ec_id){
+  std::cerr << "[" << m_profile.instance_name << "] "<< "onActivated(" << ec_id << ")" << std::endl;
+  return RTC::RTC_OK;
+}
+RTC::ReturnCode_t PrimitiveMotionLevelController::onDeactivated(RTC::UniqueId ec_id){
+  std::cerr << "[" << m_profile.instance_name << "] "<< "onDeactivated(" << ec_id << ")" << std::endl;
+  return RTC::RTC_OK;
+}
 RTC::ReturnCode_t PrimitiveMotionLevelController::onFinalize(){ return RTC::RTC_OK; }
 
 extern "C"{

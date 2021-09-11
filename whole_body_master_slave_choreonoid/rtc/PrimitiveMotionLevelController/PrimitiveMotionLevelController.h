@@ -34,7 +34,7 @@ public:
       m_qRefIn_("qRef", m_qRef_),// from sh
       m_basePosRefIn_("basePosRefIn", m_basePosRef_),// from sh
       m_baseRpyRefIn_("baseRpyRefIn", m_baseRpyRef_),// from sh
-      m_primitiveCommandRefIn_("primitiveCommandRefIn", m_primitiveCommandRefIn_),
+      m_primitiveCommandRefIn_("primitiveCommandRefIn", m_primitiveCommandRef_),
 
       m_qActIn_("qAct", m_qAct_),
       m_imuActIn_("imuAct", m_imuAct_),
@@ -52,8 +52,8 @@ public:
     RTC::InPort<RTC::TimedPoint3D> m_basePosRefIn_;
     RTC::TimedOrientation3D m_baseRpyRef_;
     RTC::InPort<RTC::TimedOrientation3D> m_baseRpyRefIn_;
-    WholeBodyMasterSlaveChoreonoidIdl::primitiveCommand m_primitiveCommandRef_;
-    RTC::InPort <WholeBodyMasterSlaveChoreonoidIdl::primitiveCommand> m_primitiveCommandRefIn_;
+    WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelControllerService::PrimitiveCommand m_primitiveCommandRef_;
+    RTC::InPort <WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelControllerService::PrimitiveCommand> m_primitiveCommandRefIn_;
 
     RTC::TimedDoubleSeq m_qAct_;
     RTC::InPort<RTC::TimedDoubleSeq> m_qActIn_;
@@ -73,7 +73,7 @@ public:
 
   class ControlMode{
   public:
-    enum mode_enum{ MODE_IDLE, MODE_SYNC_TO_WBMS, MODE_WBMS, MODE_SYNC_TO_IDLE};
+    enum mode_enum{ MODE_IDLE, MODE_SYNC_TO_CONTROL, MODE_CONTROL, MODE_SYNC_TO_IDLE};
   private:
     mode_enum current, previous, next;
   public:
@@ -101,8 +101,10 @@ public:
   };
 
   class PrimitiveState {
-    PrimitiveState(std::string name);
+  public:
+    PrimitiveState(const std::string& name);
     void updateFromIdl(const WholeBodyMasterSlaveChoreonoidIdl::PrimitiveState& idl);
+    void updateTargetForOneStep(double dt);
     const std::string& name() const { return name_;}
   protected:
     std::string name_;
@@ -114,20 +116,20 @@ public:
     cnoid::Position targetPosePrevPrev_; //world frame
     cpp_filters::TwoPointInterpolator<cnoid::Vector3> targetPositionInterpolator_; //world frame
     cpp_filters::TwoPointInterpolatorSO3 targetOrientationInterpolator_; //world frame
-    cnoid::Position targetWrench_; //world frame
+    cnoid::Vector6 targetWrench_; //world frame
     cpp_filters::TwoPointInterpolator<cnoid::Vector6> targetWrenchInterpolator_; //world frame
 
     cnoid::Vector6 M_, D_, K_;// local frame
 
     cnoid::Vector6 actWrench_; // Position control only
-    cnoid::Vector6 actWrenchGain_; // Position control only
+    cnoid::Vector6 wrenchGain_; // Position control only
   };
 
   class frame {
   public:
     std::string parentLinkName_;
     cnoid::Position localPose_;
-  }
+  };
 
 public:
   PrimitiveMotionLevelController(RTC::Manager* manager);
@@ -147,7 +149,7 @@ protected:
   unsigned int loop_;
   double m_dt_;
 
-  Ports port_;
+  Ports ports_;
   ControlMode mode_;
 
   cnoid::BodyPtr m_robot_ref_; // reference (q, basepos and baserpy only)
@@ -165,39 +167,7 @@ protected:
 
 
 
-  std::map<std::string, IKConstraint> ee_ikc_map; // e.g. feet hands head com
-  std::map<std::string, size_t> contact_states_index_map;
 
-  HumanPose raw_pose;
-
-  boost::shared_ptr<WBMSCore> wbms;
-  boost::shared_ptr<CapsuleCollisionChecker> sccp;
-
-  hrp::Vector3 torso_rot_rmc;
-
-  hrp::Vector3 rel_act_cp;
-  hrp::Vector3 rel_act_zmp;
-  struct timespec startT, endT;
-  std::string time_report_str;
-
-  hrp::Vector3 static_balancing_com_offset;
-
-  std::vector<std::string> ee_names;
-  std::vector<std::string> tgt_names;
-
-  RTC::ReturnCode_t setupEEIKConstraintFromConf(std::map<std::string, IKConstraint>& _ee_ikc_map, hrp::BodyPtr _robot, RTC::Properties& _prop);
-  void solveFullbodyIK(HumanPose& ref);
-  void preProcessForWholeBodyMasterSlave();
-  void processWholeBodyMasterSlave(const HumanPose& ref);
-  void smoothingJointAngles(hrp::BodyPtr _robot, hrp::BodyPtr _robot_safe);
-  bool isOptionalDataContact (const std::string& ee_name) { return (std::fabs(m_optionalData.data[contact_states_index_map[ee_name]]-1.0)<0.1)?true:false; }
-  void addTimeReport(const std::string& prefix){
-    clock_gettime(CLOCK_REALTIME, &endT);
-    std::stringstream ss;
-    ss << prefix << "= " << std::fixed <<std::setprecision(2) << (double)(endT.tv_sec - startT.tv_sec + (endT.tv_nsec - startT.tv_nsec) * 1e-6) << " [ms] / ";
-    time_report_str += ss.str();
-    clock_gettime(CLOCK_REALTIME, &startT);
-  }
 };
 
 

@@ -4,7 +4,7 @@
  */
 #include "PrimitiveState.idl"
 #include "ExtendedDataTypes.idl" // openrtm
-module WholeBodyMasterSlaveChorenoidIdl
+module WholeBodyMasterSlaveChoreonoidIdl
 {
   interface PrimitiveMotionLevelControllerService
   {
@@ -17,7 +17,7 @@ module WholeBodyMasterSlaveChorenoidIdl
     {
       string parentLinkName;
       RTC::Pose3D localPose;
-    }
+    };
 
     struct PrimitiveCommand
     {
@@ -28,6 +28,7 @@ module WholeBodyMasterSlaveChorenoidIdl
 
     struct PrimitiveMotionLevelControllerParam
     {
+      string hoge;
     };
     void setParams(in PrimitiveMotionLevelControllerParam i_param);
     void getParams(out PrimitiveMotionLevelControllerParam i_param);

@@ -1,6 +1,10 @@
 add_compile_options(-std=c++11)
 set(CMAKE_BUILD_TYPE Release)
 
+# openrtm has deprecated coding. This causes too many warnings.
+#   warning: dynamic exception specifications are deprecated in C++11
+set(CMAKE_WARN_DEPRECATED FALSE)
+
 find_package(catkin REQUIRED
   rtmbuild
   fullbody_inverse_kinematics_solver
@@ -10,7 +14,6 @@ find_package(choreonoid REQUIRED)
 include_directories(
   ${catkin_INCLUDE_DIRS}
   ${CHOREONOID_INCLUDE_DIRS}
-  ${OpenCV_INCLUDE_DIRS}
   )
 
 # 相対パスを絶対パスに直す
@@ -24,6 +27,7 @@ rtmbuild_add_library(PrimitiveMotionLevelController SHARED
   PrimitiveMotionLevelController.cpp
   PrimitiveMotionLevelControllerService_impl.cpp)
 target_link_libraries(PrimitiveMotionLevelController
+  ${catkin_LIBRARIES}
   ${CHOREONOID_BODY_LIBRARIES_ABS})
 set_target_properties(PrimitiveMotionLevelController PROPERTIES PREFIX "")
 

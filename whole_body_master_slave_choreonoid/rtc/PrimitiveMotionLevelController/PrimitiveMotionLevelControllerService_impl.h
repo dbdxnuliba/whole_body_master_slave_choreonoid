@@ -7,16 +7,16 @@
 class PrimitiveMotionLevelController;
 
 class PrimitiveMotionLevelControllerService_impl
-  : public virtual POA_WholeBodyMasterSlaveChorenoidIdl::PrimitiveMotionLevelControllerService,
+  : public virtual POA_WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelControllerService,
     public virtual PortableServer::RefCountServantBase
 {
 public:
   CORBA::Boolean startControl();
   CORBA::Boolean stopControl();
-  void setParams(const WholeBodyMasterSlaveChorenoidIdl::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param);
-  void getParams(WholeBodyMasterSlaveChorenoidIdl::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam_out i_param);
+  void setParams(const WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param);
+  void getParams(WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam_out i_param);
   //
-  void wholebodymasterslavechoreonoid(PrimitiveMotionLevelController *i_comp);
+  void setComp(PrimitiveMotionLevelController *i_comp);
 private:
   PrimitiveMotionLevelController *comp_;
 };
