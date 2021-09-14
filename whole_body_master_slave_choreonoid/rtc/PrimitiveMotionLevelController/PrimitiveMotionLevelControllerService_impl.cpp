@@ -1,6 +1,14 @@
 #include "PrimitiveMotionLevelControllerService_impl.h"
 #include "PrimitiveMotionLevelController.h"
 
+PrimitiveMotionLevelControllerService_impl::PrimitiveMotionLevelControllerService_impl()
+{
+}
+
+PrimitiveMotionLevelControllerService_impl::~PrimitiveMotionLevelControllerService_impl()
+{
+}
+
 void PrimitiveMotionLevelControllerService_impl::setComp(PrimitiveMotionLevelController *i_comp)
 {
   comp_ = i_comp;

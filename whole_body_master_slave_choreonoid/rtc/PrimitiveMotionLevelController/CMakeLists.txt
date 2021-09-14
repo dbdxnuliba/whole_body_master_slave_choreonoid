@@ -32,6 +32,7 @@ target_link_libraries(PrimitiveMotionLevelController
   ${catkin_LIBRARIES}
   ${CHOREONOID_BODY_LIBRARIES_ABS})
 set_target_properties(PrimitiveMotionLevelController PROPERTIES PREFIX "")
+add_dependencies(PrimitiveMotionLevelController RTMBUILD_${PROJECT_NAME}_genrpc) # wait for rtmbuild_genidl
 
 rtmbuild_add_executable(PrimitiveMotionLevelControllerComp PrimitiveMotionLevelControllerComp.cpp)
 target_link_libraries(PrimitiveMotionLevelControllerComp PrimitiveMotionLevelController)

@@ -11,6 +11,8 @@ class PrimitiveMotionLevelControllerService_impl
     public virtual PortableServer::RefCountServantBase
 {
 public:
+  PrimitiveMotionLevelControllerService_impl();// 実装は.cppファイルの方に書かないと、registerProvider時にSegmentation Faultになる
+  ~PrimitiveMotionLevelControllerService_impl();
   CORBA::Boolean startControl();
   CORBA::Boolean stopControl();
   void setParams(const WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param);
