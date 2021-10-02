@@ -5,6 +5,8 @@
 - `basePosRef` (RTC::TimedPoint3D) [REQUIRED]
 - `baseRpyRef` (RTC::TimedOrientation3D) [REQUIRED]
 - `primitiveCommandRef` (WholeBodyMasterSlaveChoreonoidIdl::TimedPrimitiveStateSeq) [REQUIRED]
+- `qAct` (RTC::TimedDoubleSeq) [REQUIRED]
+- `imuAct` (RTC::TimedOrientation3D) [REQUIRED]
 
 ## OutPort
 - `qCom` (RTC::TimedDoubleSeq)

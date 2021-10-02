@@ -1,5 +1,5 @@
-#ifndef PrimitiveMotionLevelController_H
-#define PrimitiveMotionLevelController_H
+#ifndef PrimitiveMotionLevelCOMController_H
+#define PrimitiveMotionLevelCOMController_H
 
 #include <memory>
 #include <map>
@@ -22,25 +22,28 @@
 #include <cpp_filters/IIRFilter.h>
 
 #include <whole_body_master_slave_choreonoid/idl/PrimitiveState.hh>
-#include "PrimitiveMotionLevelControllerService_impl.h"
+#include "PrimitiveMotionLevelCOMControllerService_impl.h"
 #include "PrimitiveCommand.h"
 #include "PositionController.h"
 
-class PrimitiveMotionLevelController : public RTC::DataFlowComponentBase{
+class PrimitiveMotionLevelCOMController : public RTC::DataFlowComponentBase{
 public:
   class Ports {
   public:
     Ports() :
-      m_qRefIn_("qRefIn", m_qRef_),// from sh
+      m_qRefIn_("qRef", m_qRef_),// from sh
       m_basePosRefIn_("basePosRefIn", m_basePosRef_),// from sh
       m_baseRpyRefIn_("baseRpyRefIn", m_baseRpyRef_),// from sh
       m_primitiveCommandRefIn_("primitiveCommandRefIn", m_primitiveCommandRef_),
 
-      m_qComOut_("qComOut", m_qCom_),
+      m_qActIn_("qAct", m_qAct_),
+      m_imuActIn_("imuAct", m_imuAct_),
+
+      m_qComOut_("qCom", m_qCom_),
       m_basePosComOut_("basePosComOut", m_basePosCom_),
       m_baseRpyComOut_("baseRpyComOut", m_baseRpyCom_),
 
-      m_PrimitiveMotionLevelControllerServicePort_("PrimitiveMotionLevelControllerService") {
+      m_PrimitiveMotionLevelCOMControllerServicePort_("PrimitiveMotionLevelCOMControllerService") {
     }
 
     RTC::TimedDoubleSeq m_qRef_;
@@ -52,6 +55,11 @@ public:
     WholeBodyMasterSlaveChoreonoidIdl::TimedPrimitiveStateSeq m_primitiveCommandRef_;
     RTC::InPort <WholeBodyMasterSlaveChoreonoidIdl::TimedPrimitiveStateSeq> m_primitiveCommandRefIn_;
 
+    RTC::TimedDoubleSeq m_qAct_;
+    RTC::InPort<RTC::TimedDoubleSeq> m_qActIn_;
+    RTC::TimedOrientation3D m_imuAct_;
+    RTC::InPort<RTC::TimedOrientation3D> m_imuActIn_;
+
     RTC::TimedDoubleSeq m_qCom_;
     RTC::OutPort<RTC::TimedDoubleSeq> m_qComOut_;
     RTC::TimedPoint3D m_basePosCom_;
@@ -59,8 +67,8 @@ public:
     RTC::TimedOrientation3D m_baseRpyCom_;
     RTC::OutPort<RTC::TimedOrientation3D> m_baseRpyComOut_;
 
-    PrimitiveMotionLevelControllerService_impl m_service0_;
-    RTC::CorbaPort m_PrimitiveMotionLevelControllerServicePort_;
+    PrimitiveMotionLevelCOMControllerService_impl m_service0_;
+    RTC::CorbaPort m_PrimitiveMotionLevelCOMControllerServicePort_;
   };
 
   class ControlMode{
@@ -94,7 +102,7 @@ public:
 
 
 public:
-  PrimitiveMotionLevelController(RTC::Manager* manager);
+  PrimitiveMotionLevelCOMController(RTC::Manager* manager);
   virtual RTC::ReturnCode_t onInitialize();
   virtual RTC::ReturnCode_t onFinalize();
   virtual RTC::ReturnCode_t onActivated(RTC::UniqueId ec_id);
@@ -102,8 +110,8 @@ public:
   virtual RTC::ReturnCode_t onExecute(RTC::UniqueId ec_id);
   bool startControl();
   bool stopControl();
-  bool setParams(const WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param);
-  bool getParams(WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param);
+  bool setParams(const WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelCOMControllerService::PrimitiveMotionLevelCOMControllerParam& i_param);
+  bool getParams(WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelCOMControllerService::PrimitiveMotionLevelCOMControllerParam& i_param);
 
 protected:
 
@@ -115,6 +123,7 @@ protected:
   ControlMode mode_;
 
   cnoid::BodyPtr m_robot_ref_; // reference (q, basepos and baserpy only)
+  cnoid::BodyPtr m_robot_act_; // actual
   cnoid::BodyPtr m_robot_com_; // command
 
   std::shared_ptr<cpp_filters::TwoPointInterpolator<double> > outputRatioInterpolator_;
@@ -130,7 +139,7 @@ protected:
 
 extern "C"
 {
-  void PrimitiveMotionLevelControllerInit(RTC::Manager* manager);
+  void PrimitiveMotionLevelCOMControllerInit(RTC::Manager* manager);
 };
 
-#endif // PrimitiveMotionLevelController_H
+#endif // PrimitiveMotionLevelCOMController_H

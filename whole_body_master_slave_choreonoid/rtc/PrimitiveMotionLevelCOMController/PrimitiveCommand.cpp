@@ -20,7 +20,8 @@ namespace PrimitiveMotionLevel {
     K_(cnoid::Vector6::Zero()),
     actWrench_(cnoid::Vector6::Zero()),
     wrenchGain_(cnoid::Vector6::Zero()),
-    supportCOM_(false)
+    supportCOM_(false),
+    supportCOMChanged_(false)
   {
   }
 
@@ -44,6 +45,8 @@ namespace PrimitiveMotionLevel {
     for(size_t i=0;i<6;i++) this->K_[i] = idl.K[i];
     for(size_t i=0;i<6;i++) this->actWrench_[i] = idl.actWrench[i];
     for(size_t i=0;i<6;i++) this->wrenchGain_[i] = idl.wrenchGain[i];
+    if(this->supportCOM_ != idl.supportCOM) this->supportCOMChanged_ = true;
+    else this->supportCOMChanged_ = false;
     this->supportCOM_ = idl.supportCOM;
   }
 

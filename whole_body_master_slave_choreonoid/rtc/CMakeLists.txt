@@ -1,1 +1,2 @@
 add_subdirectory(PrimitiveMotionLevelController)
+add_subdirectory(PrimitiveMotionLevelCOMController)

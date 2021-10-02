@@ -142,6 +142,7 @@ namespace PrimitiveMotionLevel {
   void PositionController::control(const std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap, // primitive motion level target
                                    const cnoid::BodyPtr& robot_ref, // command level target
                                    cnoid::BodyPtr& robot_com, //output
+                                   const bool& frameWarped, // if true, not calculate velocity
                                    double dt
                                    ) {
     // 目標値を反映

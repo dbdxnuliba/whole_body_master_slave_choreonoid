@@ -1,0 +1,21 @@
+/**
+ * @file PrimitiveMotionLevelCOMControllerService.idl
+ * @brief Services for the PrimitiveMotionLevelCOMController interface
+ */
+#include "PrimitiveState.idl"
+#include "ExtendedDataTypes.idl" // openrtm
+module WholeBodyMasterSlaveChoreonoidIdl
+{
+  interface PrimitiveMotionLevelCOMControllerService
+  {
+    struct PrimitiveMotionLevelCOMControllerParam
+    {
+      string hoge;
+    };
+    void setParams(in PrimitiveMotionLevelCOMControllerParam i_param);
+    void getParams(out PrimitiveMotionLevelCOMControllerParam i_param);
+
+    boolean startControl();
+    boolean stopControl();
+  };
+};

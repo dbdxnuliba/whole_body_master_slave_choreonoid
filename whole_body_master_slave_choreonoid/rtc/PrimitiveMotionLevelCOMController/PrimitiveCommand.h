@@ -22,6 +22,7 @@ namespace PrimitiveMotionLevel {
     const cnoid::Vector6& actWrench() const { return actWrench_;}
     const cnoid::Vector6& wrenchGain() const { return wrenchGain_;}
     const bool& supportCOM() const { return supportCOM_; }
+    const bool& supportCOMChanged() const { return supportCOMChanged_;}
   protected:
     std::string name_;
     std::string parentLinkName_;
@@ -41,6 +42,7 @@ namespace PrimitiveMotionLevel {
     cnoid::Vector6 wrenchGain_; // local frame // Position control only
 
     bool supportCOM_;
+    bool supportCOMChanged_;
   };
 }
 

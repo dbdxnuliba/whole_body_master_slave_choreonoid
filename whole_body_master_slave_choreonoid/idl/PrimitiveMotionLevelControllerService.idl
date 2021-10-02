@@ -1,6 +1,6 @@
 /**
- * @file WholeBodyMasterSlaveService.idl
- * @brief Services for the WholeBodyMasterSlave interface
+ * @file PrimitiveMotionLevelControllerService.idl
+ * @brief Services for the PrimitiveMotionLevelController interface
  */
 #include "PrimitiveState.idl"
 #include "ExtendedDataTypes.idl" // openrtm
@@ -8,17 +8,6 @@ module WholeBodyMasterSlaveChoreonoidIdl
 {
   interface PrimitiveMotionLevelControllerService
   {
-    typedef sequence<double, 2> DblSequence2;
-    typedef sequence<double, 3> DblSequence3;
-    typedef sequence<double, 4> DblSequence4;
-    typedef sequence<string> StrSequence;
-
-    struct frame
-    {
-      string parentLinkName;
-      RTC::Pose3D localPose;
-    };
-
     struct PrimitiveMotionLevelControllerParam
     {
       string hoge;

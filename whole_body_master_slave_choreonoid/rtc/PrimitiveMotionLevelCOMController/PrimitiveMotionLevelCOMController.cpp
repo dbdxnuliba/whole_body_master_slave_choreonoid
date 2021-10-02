@@ -1,4 +1,4 @@
-#include "PrimitiveMotionLevelController.h"
+#include "PrimitiveMotionLevelCOMController.h"
 #include <cnoid/BodyLoader>
 #include <cnoid/ForceSensor>
 #include <cnoid/AccelerationSensor>
@@ -7,9 +7,9 @@
 #define DEBUGP (loop%200==0)
 #define DEBUGP_ONCE (loop==0)
 
-static const char* PrimitiveMotionLevelController_spec[] = {
-  "implementation_id", "PrimitiveMotionLevelController",
-  "type_name",         "PrimitiveMotionLevelController",
+static const char* PrimitiveMotionLevelCOMController_spec[] = {
+  "implementation_id", "PrimitiveMotionLevelCOMController",
+  "type_name",         "PrimitiveMotionLevelCOMController",
   "description",       "wholebodymasterslave component",
   "version",           "0.0",
   "vendor",            "Naoki-Hiraoka",
@@ -22,36 +22,41 @@ static const char* PrimitiveMotionLevelController_spec[] = {
   ""
 };
 
-PrimitiveMotionLevelController::PrimitiveMotionLevelController(RTC::Manager* manager) : RTC::DataFlowComponentBase(manager),
+PrimitiveMotionLevelCOMController::PrimitiveMotionLevelCOMController(RTC::Manager* manager) : RTC::DataFlowComponentBase(manager),
   ports_(),
   m_debugLevel_(0)
 {
   this->ports_.m_service0_.setComp(this);
 }
 
-RTC::ReturnCode_t PrimitiveMotionLevelController::onInitialize(){
+RTC::ReturnCode_t PrimitiveMotionLevelCOMController::onInitialize(){
   bindParameter("debugLevel", this->m_debugLevel_, "0");
 
   addInPort("qRef", this->ports_.m_qRefIn_);// from sh
   addInPort("basePosRef", this->ports_.m_basePosRefIn_);
   addInPort("baseRpyRef", this->ports_.m_baseRpyRefIn_);
   addInPort("primitiveCommandRefRef", this->ports_.m_primitiveCommandRefIn_);
+  addInPort("qAct", this->ports_.m_qActIn_);
+  addInPort("imuAct", this->ports_.m_imuActIn_);
   addOutPort("qCom", this->ports_.m_qComOut_);
   addOutPort("basePosCom", this->ports_.m_basePosComOut_);
   addOutPort("baseRpyCom", this->ports_.m_baseRpyComOut_);
-  this->ports_.m_PrimitiveMotionLevelControllerServicePort_.registerProvider("service0", "PrimitiveMotionLevelControllerService", this->ports_.m_service0_);
-  addPort(this->ports_.m_PrimitiveMotionLevelControllerServicePort_);
+  this->ports_.m_PrimitiveMotionLevelCOMControllerServicePort_.registerProvider("service0", "PrimitiveMotionLevelCOMControllerService", this->ports_.m_service0_);
+  addPort(this->ports_.m_PrimitiveMotionLevelCOMControllerServicePort_);
+
+  RTC::Properties& prop = getProperties();
+  coil::stringTo(this->m_dt_, prop["dt"].c_str());
 
   this->loop_ = 0;
 
   cnoid::BodyLoader bodyLoader;
-  RTC::Properties& prop = this->getProperties();
   cnoid::BodyPtr robot = bodyLoader.load(prop["model"]);
   if(!robot){
     std::cerr << "\x1b[31m[" << m_profile.instance_name << "] " << "failed to load model[" << prop["model"] << "]" << "\x1b[39m" << std::endl;
     return RTC::RTC_ERROR;
   }
   this->m_robot_ref_ = robot;
+  this->m_robot_act_ = robot->clone();
   this->m_robot_com_ = robot->clone();
 
   this->outputRatioInterpolator_ = std::make_shared<cpp_filters::TwoPointInterpolator<double> >(0.0,0.0,0.0,cpp_filters::HOFFARBIB);
@@ -59,17 +64,19 @@ RTC::ReturnCode_t PrimitiveMotionLevelController::onInitialize(){
   return RTC::RTC_OK;
 }
 
-namespace PrimitiveMotionLevelControllerImpl {
+namespace PrimitiveMotionLevelCOMControllerImpl {
 
-  void readPorts(const std::string& instance_name, PrimitiveMotionLevelController::Ports& port) {
+  void readPorts(const std::string& instance_name, PrimitiveMotionLevelCOMController::Ports& port) {
     if(port.m_qRefIn_.isNew()) port.m_qRefIn_.read();
     if(port.m_basePosRefIn_.isNew()) port.m_basePosRefIn_.read();
     if(port.m_baseRpyRefIn_.isNew()) port.m_baseRpyRefIn_.read();
     if(port.m_primitiveCommandRefIn_.isNew()) port.m_primitiveCommandRefIn_.read();
+    if(port.m_qActIn_.isNew()) port.m_qActIn_.read();
+    if(port.m_imuActIn_.isNew()) port.m_imuActIn_.read();
   }
 
   // calc reference state (without ee. q, basepos and baserpy only)
-  void calcReferenceRobot(const std::string& instance_name, const PrimitiveMotionLevelController::Ports& port, cnoid::BodyPtr& robot) {
+  void calcReferenceRobot(const std::string& instance_name, const PrimitiveMotionLevelCOMController::Ports& port, cnoid::BodyPtr& robot) {
     if(port.m_qRef_.data.length() == robot->numJoints()){
       for ( int i = 0; i < robot->numJoints(); i++ ){
         robot->joint(i)->q() = port.m_qRef_.data[i];
@@ -82,7 +89,23 @@ namespace PrimitiveMotionLevelControllerImpl {
     robot->calcForwardKinematics();
   }
 
-  void getPrimitiveCommand(const std::string& instance_name, const PrimitiveMotionLevelController::Ports& port, double dt, std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap) {
+  // calc actial state from inport
+  void calcActualRobot(const std::string& instance_name, const PrimitiveMotionLevelCOMController::Ports& port, cnoid::BodyPtr& robot_act) {
+    if(port.m_qAct_.data.length() == robot_act->numJoints()){
+      for ( int i = 0; i < robot_act->numJoints(); i++ ){
+        robot_act->joint(i)->q() = port.m_qAct_.data[i];
+      }
+      robot_act->calcForwardKinematics();
+
+      cnoid::AccelerationSensorPtr imu = robot_act->findDevice<cnoid::AccelerationSensor>("gyrometer");
+      cnoid::Matrix3 imuR = imu->link()->R() * imu->R_local();
+      cnoid::Matrix3 actR = cnoid::rotFromRpy(port.m_imuAct_.data.r, port.m_imuAct_.data.p, port.m_imuAct_.data.y);
+      robot_act->rootLink()->R() = (actR * (imuR.transpose() * robot_act->rootLink()->R())).eval();
+      robot_act->calcForwardKinematics();
+    }
+  }
+
+  void getPrimitiveCommand(const std::string& instance_name, const PrimitiveMotionLevelCOMController::Ports& port, double dt, std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap) {
     // 消滅したEndEffectorを削除
     for(std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >::iterator it = primitiveCommandMap.begin(); it != primitiveCommandMap.end(); ) {
       bool found = false;
@@ -107,27 +130,58 @@ namespace PrimitiveMotionLevelControllerImpl {
     }
   }
 
-  void processModeTransition(const std::string& instance_name, PrimitiveMotionLevelController::ControlMode& mode, std::shared_ptr<cpp_filters::TwoPointInterpolator<double> >& outputRatioInterpolator, const double dt){
+  void moveActualRobotToFixedFrame(const std::string& instance_name, const std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap, bool& fixedFrameWarped, cnoid::BodyPtr& robot_act) {
+    for(std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >::const_iterator it = primitiveCommandMap.begin(); it != primitiveCommandMap.end(); it++) {
+      if(it->second->supportCOMChanged()) fixedFrameWarped = true;
+    }
+
+    std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >::const_iterator fixedFrameIt;
+    for(fixedFrameIt = primitiveCommandMap.begin(); fixedFrameIt != primitiveCommandMap.end(); fixedFrameIt++) {
+      if(fixedFrameIt->second->supportCOM()) break;
+    }
+    if(fixedFrameIt == primitiveCommandMap.end()){
+      std::cerr << "\x1b[31m[" << instance_name << "] " << "Fixed Frame not exists" << "\x1b[39m" << std::endl;
+      return;
+    }
+    std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> fixedFrame = fixedFrameIt->second;
+
+    if(!robot_act->link(fixedFrame->parentLinkName())) {
+      std::cerr << "\x1b[31m[" << instance_name << "] " << "link " << fixedFrame->parentLinkName() << " not found" << "\x1b[39m" << std::endl;
+      return;
+    }
+    cnoid::Position fixedFrameCom = fixedFrame->targetPose();
+    cnoid::Position fixedFrameAct = robot_act->link(fixedFrame->parentLinkName())->T() * fixedFrame->localPose();
+    cnoid::Position trans = fixedFrameCom * fixedFrameAct.inverse();
+    {
+      // 鉛直軸は修正しない
+      Eigen::Quaterniond rot;
+      rot.setFromTwoVectors(trans.linear() * Eigen::Vector3d::UnitZ(), Eigen::Vector3d::UnitZ());
+      trans.linear() = (rot * trans.linear()).eval();
+    };
+    robot_act->rootLink()->T() = trans * robot_act->rootLink()->T();
+  }
+
+  void processModeTransition(const std::string& instance_name, PrimitiveMotionLevelCOMController::ControlMode& mode, std::shared_ptr<cpp_filters::TwoPointInterpolator<double> >& outputRatioInterpolator, const double dt){
     double tmp;
     switch(mode.now()){
-    case PrimitiveMotionLevelController::ControlMode::MODE_SYNC_TO_CONTROL:
-      if(mode.pre() == PrimitiveMotionLevelController::ControlMode::MODE_IDLE){
+    case PrimitiveMotionLevelCOMController::ControlMode::MODE_SYNC_TO_CONTROL:
+      if(mode.pre() == PrimitiveMotionLevelCOMController::ControlMode::MODE_IDLE){
         outputRatioInterpolator->setGoal(1.0, 3.0);
       }
       if (!outputRatioInterpolator->isEmpty() ){
         outputRatioInterpolator->get(tmp, dt);
       }else{
-        mode.setNextMode(PrimitiveMotionLevelController::ControlMode::MODE_CONTROL);
+        mode.setNextMode(PrimitiveMotionLevelCOMController::ControlMode::MODE_CONTROL);
       }
       break;
-    case PrimitiveMotionLevelController::ControlMode::MODE_SYNC_TO_IDLE:
-      if(mode.pre() == PrimitiveMotionLevelController::ControlMode::MODE_CONTROL){
+    case PrimitiveMotionLevelCOMController::ControlMode::MODE_SYNC_TO_IDLE:
+      if(mode.pre() == PrimitiveMotionLevelCOMController::ControlMode::MODE_CONTROL){
         outputRatioInterpolator->setGoal(0.0, 3.0, true);
       }
       if (outputRatioInterpolator->isEmpty()) {
         outputRatioInterpolator->get(tmp, dt);
       }else{
-        mode.setNextMode(PrimitiveMotionLevelController::ControlMode::MODE_IDLE);
+        mode.setNextMode(PrimitiveMotionLevelCOMController::ControlMode::MODE_IDLE);
       }
       break;
     }
@@ -150,7 +204,7 @@ namespace PrimitiveMotionLevelControllerImpl {
     robot_com->calcForwardKinematics();
   }
 
-  void calcOutputPorts(const std::string& instance_name, PrimitiveMotionLevelController::Ports& port, double output_ratio, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_com) {
+  void calcOutputPorts(const std::string& instance_name, PrimitiveMotionLevelCOMController::Ports& port, double output_ratio, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_com) {
     // qCom
     if (port.m_qRef_.data.length() == robot_com->numJoints()){
       port.m_qCom_.data.length(robot_com->numJoints());
@@ -179,45 +233,51 @@ namespace PrimitiveMotionLevelControllerImpl {
 
 }
 
-RTC::ReturnCode_t PrimitiveMotionLevelController::onExecute(RTC::UniqueId ec_id){
+RTC::ReturnCode_t PrimitiveMotionLevelCOMController::onExecute(RTC::UniqueId ec_id){
 
   std::string instance_name = std::string(this->m_profile.instance_name);
-  double dt = 1.0 / this->get_context(ec_id)->get_rate();
 
   // read ports
-  PrimitiveMotionLevelControllerImpl::readPorts(instance_name, this->ports_);
+  PrimitiveMotionLevelCOMControllerImpl::readPorts(instance_name, this->ports_);
 
   // calc reference state from inport (without ee. q, basepos and baserpy only)
-  PrimitiveMotionLevelControllerImpl::calcReferenceRobot(instance_name, this->ports_, this->m_robot_ref_);
+  PrimitiveMotionLevelCOMControllerImpl::calcReferenceRobot(instance_name, this->ports_, this->m_robot_ref_);
+
+  // calc actial state from inport
+  PrimitiveMotionLevelCOMControllerImpl::calcActualRobot(instance_name, this->ports_, this->m_robot_act_);
 
   // get primitive motion level command
-  PrimitiveMotionLevelControllerImpl::getPrimitiveCommand(instance_name, this->ports_, dt, this->primitiveCommandMap_);
+  PrimitiveMotionLevelCOMControllerImpl::getPrimitiveCommand(instance_name, this->ports_, this->m_dt_, this->primitiveCommandMap_);
+
+  // match frame of actual robot to command.
+  bool fixedFrameWarped = false;
+  PrimitiveMotionLevelCOMControllerImpl::moveActualRobotToFixedFrame(instance_name, this->primitiveCommandMap_, fixedFrameWarped, this->m_robot_act_);
 
   // mode遷移を実行
-  PrimitiveMotionLevelControllerImpl::processModeTransition(instance_name, this->mode_, this->outputRatioInterpolator_, dt);
+  PrimitiveMotionLevelCOMControllerImpl::processModeTransition(instance_name, this->mode_, this->outputRatioInterpolator_, this->m_dt_);
 
   if(this->mode_.isRunning()) {
     if(this->mode_.isInitialize()){
-      PrimitiveMotionLevelControllerImpl::preProcessForControl(instance_name, this->positionController_);
+      PrimitiveMotionLevelCOMControllerImpl::preProcessForControl(instance_name, this->positionController_);
     }
 
-    this->positionController_.control(this->primitiveCommandMap_, this->m_robot_ref_, this->m_robot_com_, dt);
+    this->positionController_.control(this->primitiveCommandMap_, this->m_robot_ref_, this->m_robot_com_, fixedFrameWarped, this->m_dt_);
 
   } else {
     // robot_refがそのままrobot_comになる
-    PrimitiveMotionLevelControllerImpl::passThrough(instance_name, this->m_robot_ref_, this->m_robot_com_);
+    PrimitiveMotionLevelCOMControllerImpl::passThrough(instance_name, this->m_robot_ref_, this->m_robot_com_);
   }
 
   // write outport
   double output_ratio; this->outputRatioInterpolator_->get(output_ratio);
-  PrimitiveMotionLevelControllerImpl::calcOutputPorts(instance_name, this->ports_, output_ratio, this->m_robot_ref_, this->m_robot_com_);
+  PrimitiveMotionLevelCOMControllerImpl::calcOutputPorts(instance_name, this->ports_, output_ratio, this->m_robot_ref_, this->m_robot_com_);
 
   this->loop_++;
   return RTC::RTC_OK;
 }
 
 
-bool PrimitiveMotionLevelController::startControl(){
+bool PrimitiveMotionLevelCOMController::startControl(){
   if(this->mode_.now() == ControlMode::MODE_IDLE){
     std::cerr << "[" << m_profile.instance_name << "] "<< "startControl" << std::endl;
     this->mode_.setNextMode(ControlMode::MODE_SYNC_TO_CONTROL);
@@ -229,7 +289,7 @@ bool PrimitiveMotionLevelController::startControl(){
 }
 
 
-bool PrimitiveMotionLevelController::stopControl(){
+bool PrimitiveMotionLevelCOMController::stopControl(){
   if(this->mode_.now() == ControlMode::MODE_CONTROL ){
     std::cerr << "[" << m_profile.instance_name << "] "<< "stopControl" << std::endl;
     this->mode_.setNextMode(ControlMode::MODE_SYNC_TO_IDLE);
@@ -240,30 +300,30 @@ bool PrimitiveMotionLevelController::stopControl(){
   }
 }
 
-bool PrimitiveMotionLevelController::setParams(const WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param){
+bool PrimitiveMotionLevelCOMController::setParams(const WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelCOMControllerService::PrimitiveMotionLevelCOMControllerParam& i_param){
   std::cerr << "[" << m_profile.instance_name << "] "<< "setParams" << std::endl;
   return true;
 }
 
 
-bool PrimitiveMotionLevelController::getParams(WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param){
+bool PrimitiveMotionLevelCOMController::getParams(WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelCOMControllerService::PrimitiveMotionLevelCOMControllerParam& i_param){
   std::cerr << "[" << m_profile.instance_name << "] "<< "getParams" << std::endl;
   return true;
 }
 
-RTC::ReturnCode_t PrimitiveMotionLevelController::onActivated(RTC::UniqueId ec_id){
+RTC::ReturnCode_t PrimitiveMotionLevelCOMController::onActivated(RTC::UniqueId ec_id){
   std::cerr << "[" << m_profile.instance_name << "] "<< "onActivated(" << ec_id << ")" << std::endl;
   return RTC::RTC_OK;
 }
-RTC::ReturnCode_t PrimitiveMotionLevelController::onDeactivated(RTC::UniqueId ec_id){
+RTC::ReturnCode_t PrimitiveMotionLevelCOMController::onDeactivated(RTC::UniqueId ec_id){
   std::cerr << "[" << m_profile.instance_name << "] "<< "onDeactivated(" << ec_id << ")" << std::endl;
   return RTC::RTC_OK;
 }
-RTC::ReturnCode_t PrimitiveMotionLevelController::onFinalize(){ return RTC::RTC_OK; }
+RTC::ReturnCode_t PrimitiveMotionLevelCOMController::onFinalize(){ return RTC::RTC_OK; }
 
 extern "C"{
-    void PrimitiveMotionLevelControllerInit(RTC::Manager* manager) {
-        RTC::Properties profile(PrimitiveMotionLevelController_spec);
-        manager->registerFactory(profile, RTC::Create<PrimitiveMotionLevelController>, RTC::Delete<PrimitiveMotionLevelController>);
+    void PrimitiveMotionLevelCOMControllerInit(RTC::Manager* manager) {
+        RTC::Properties profile(PrimitiveMotionLevelCOMController_spec);
+        manager->registerFactory(profile, RTC::Create<PrimitiveMotionLevelCOMController>, RTC::Delete<PrimitiveMotionLevelCOMController>);
     }
 };
