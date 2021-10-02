@@ -87,56 +87,55 @@ namespace PrimitiveMotionLevel {
     jlim_avoid_weight_old_ = cnoid::VectorX::Zero(0);
   }
 
-  namespace PositionControllerImpl {
-    void getPrimitiveCommand(const std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap, std::map<std::string, std::shared_ptr<PositionController::PositionTask> >& positionTaskMap) {
-      // 消滅したEndEffectorを削除
-      for(std::map<std::string, std::shared_ptr<PositionController::PositionTask> >::iterator it = positionTaskMap.begin(); it != positionTaskMap.end(); ) {
-        if (primitiveCommandMap.find(it->first) == primitiveCommandMap.end()) it = positionTaskMap.erase(it);
-        else ++it;
-      }
-      // 増加したEndEffectorの反映
-      for(std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >::const_iterator it = primitiveCommandMap.begin(); it != primitiveCommandMap.end(); it++) {
-        if(positionTaskMap.find(it->first)==positionTaskMap.end()){
-          positionTaskMap[it->first] = std::make_shared<PositionController::PositionTask>(it->first);
-        }
-      }
-      // 各指令値の反映
-      for(std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >::const_iterator it = primitiveCommandMap.begin(); it != primitiveCommandMap.end(); it++){
-        positionTaskMap[it->first]->updateFromPrimitiveCommand(it->second);
+  void PositionController::getPrimitiveCommand(const std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap, std::map<std::string, std::shared_ptr<PositionController::PositionTask> >& positionTaskMap) {
+    // 消滅したEndEffectorを削除
+    for(std::map<std::string, std::shared_ptr<PositionController::PositionTask> >::iterator it = positionTaskMap.begin(); it != positionTaskMap.end(); ) {
+      if (primitiveCommandMap.find(it->first) == primitiveCommandMap.end()) it = positionTaskMap.erase(it);
+      else ++it;
+    }
+    // 増加したEndEffectorの反映
+    for(std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >::const_iterator it = primitiveCommandMap.begin(); it != primitiveCommandMap.end(); it++) {
+      if(positionTaskMap.find(it->first)==positionTaskMap.end()){
+        positionTaskMap[it->first] = std::make_shared<PositionController::PositionTask>(it->first);
       }
     }
+    // 各指令値の反映
+    for(std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >::const_iterator it = primitiveCommandMap.begin(); it != primitiveCommandMap.end(); it++){
+      positionTaskMap[it->first]->updateFromPrimitiveCommand(it->second);
+    }
+  }
 
-    void getCommandLevelIKConstraints(const cnoid::BodyPtr& robot_ref, std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointAngleConstraint> > jointAngleConstraint, std::vector<std::shared_ptr<IK::IKConstraint> >& commandLevelIKConstraints, const cnoid::BodyPtr& robot_com) {
-      for(size_t i=0;i<robot_com->numJoints();i++){
-        if(jointAngleConstraint.find(robot_com->joint(i))==jointAngleConstraint.end()){
-          std::shared_ptr<IK::JointAngleConstraint> jac = std::make_shared<IK::JointAngleConstraint>();
-          jac->joint() = robot_com->joint(i);
-          jac->maxError() = 0.1;
-          jac->weight() = 1e-2;
-        }
-        std::shared_ptr<IK::JointAngleConstraint>& jac = jointAngleConstraint[robot_com->joint(i)];
-        jac->targetq() = robot_ref->joint(i)->q();
-        commandLevelIKConstraints.push_back(jac);
+  void PositionController::getCommandLevelIKConstraints(const cnoid::BodyPtr& robot_ref, std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointAngleConstraint> > jointAngleConstraint, std::vector<std::shared_ptr<IK::IKConstraint> >& commandLevelIKConstraints, const cnoid::BodyPtr& robot_com) {
+    for(size_t i=0;i<robot_com->numJoints();i++){
+      if(jointAngleConstraint.find(robot_com->joint(i))==jointAngleConstraint.end()){
+        std::shared_ptr<IK::JointAngleConstraint> jac = std::make_shared<IK::JointAngleConstraint>();
+        jac->joint() = robot_com->joint(i);
+        jac->maxError() = 0.1;
+        jac->weight() = 1e-2;
+        jointAngleConstraint[robot_com->joint(i)] = jac;
       }
+      std::shared_ptr<IK::JointAngleConstraint>& jac = jointAngleConstraint[robot_com->joint(i)];
+      jac->targetq() = robot_ref->joint(i)->q();
+      commandLevelIKConstraints.push_back(jac);
     }
+  }
 
-    void solveFullbodyIK(cnoid::BodyPtr& robot_com, std::vector<std::shared_ptr<IK::IKConstraint> >& primitiveMotionLevelIKConstraints, std::vector<std::shared_ptr<IK::IKConstraint> >& commandLevelIKConstraints, cnoid::VectorX& jlim_avoid_weight_old) {
-      if(jlim_avoid_weight_old.size() != 6+robot_com->numJoints()) jlim_avoid_weight_old = cnoid::VectorX::Zero(6+robot_com->numJoints());
-      cnoid::VectorX dq_weight_all = cnoid::VectorX::Ones(6+robot_com->numJoints());
-      if(robot_com->rootLink()->jointType() == cnoid::Link::FIXED_JOINT) dq_weight_all.head<6>() << 0.0,0.0,0.0,0.0,0.0,0.0;
+  void PositionController::solveFullbodyIK(cnoid::BodyPtr& robot_com, std::vector<std::shared_ptr<IK::IKConstraint> >& primitiveMotionLevelIKConstraints, std::vector<std::shared_ptr<IK::IKConstraint> >& commandLevelIKConstraints, cnoid::VectorX& jlim_avoid_weight_old) {
+    if(jlim_avoid_weight_old.size() != 6+robot_com->numJoints()) jlim_avoid_weight_old = cnoid::VectorX::Zero(6+robot_com->numJoints());
+    cnoid::VectorX dq_weight_all = cnoid::VectorX::Ones(6+robot_com->numJoints());
+    if(robot_com->rootLink()->jointType() == cnoid::Link::FIXED_JOINT) dq_weight_all.head<6>() << 0.0,0.0,0.0,0.0,0.0,0.0;
 
-      std::vector<std::shared_ptr<IK::IKConstraint> > ikConstraint;
-      ikConstraint.insert(ikConstraint.end(), primitiveMotionLevelIKConstraints.begin(), primitiveMotionLevelIKConstraints.end());
-      ikConstraint.insert(ikConstraint.end(), commandLevelIKConstraints.begin(), commandLevelIKConstraints.end());
-      fik::solveFullbodyIKLoopFast(robot_com,
-                                   ikConstraint,
-                                   jlim_avoid_weight_old,
-                                   dq_weight_all,
-                                   1,//loop
-                                   1e-6,
-                                   1//debug
-                                   );
-    }
+    std::vector<std::shared_ptr<IK::IKConstraint> > ikConstraint;
+    ikConstraint.insert(ikConstraint.end(), primitiveMotionLevelIKConstraints.begin(), primitiveMotionLevelIKConstraints.end());
+    ikConstraint.insert(ikConstraint.end(), commandLevelIKConstraints.begin(), commandLevelIKConstraints.end());
+    fik::solveFullbodyIKLoopFast(robot_com,
+                                 ikConstraint,
+                                 jlim_avoid_weight_old,
+                                 dq_weight_all,
+                                 1,//loop
+                                 1e-6,
+                                 1//debug
+                                 );
   }
 
   void PositionController::control(const std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap, // primitive motion level target
@@ -145,7 +144,7 @@ namespace PrimitiveMotionLevel {
                                    double dt
                                    ) {
     // 目標値を反映
-    PositionControllerImpl::getPrimitiveCommand(primitiveCommandMap, this->positionTaskMap_);
+    PositionController::getPrimitiveCommand(primitiveCommandMap, this->positionTaskMap_);
 
     // IK目標値を計算
     for(std::map<std::string, std::shared_ptr<PositionController::PositionTask> >::iterator it = this->positionTaskMap_.begin(); it != this->positionTaskMap_.end(); it++) {
@@ -160,10 +159,10 @@ namespace PrimitiveMotionLevel {
 
     // command levelのIKConstraintを取得
     std::vector<std::shared_ptr<IK::IKConstraint> > commandLevelIKConstraints;
-    PositionControllerImpl::getCommandLevelIKConstraints(robot_ref, this->jointAngleConstraint_, commandLevelIKConstraints, robot_com);
+    PositionController::getCommandLevelIKConstraints(robot_ref, this->jointAngleConstraint_, commandLevelIKConstraints, robot_com);
 
     // solve ik
-    PositionControllerImpl::solveFullbodyIK(robot_com, primitiveMotionLevelIKConstraints, commandLevelIKConstraints, this->jlim_avoid_weight_old_);
+    PositionController::solveFullbodyIK(robot_com, primitiveMotionLevelIKConstraints, commandLevelIKConstraints, this->jlim_avoid_weight_old_);
   }
 
 }
