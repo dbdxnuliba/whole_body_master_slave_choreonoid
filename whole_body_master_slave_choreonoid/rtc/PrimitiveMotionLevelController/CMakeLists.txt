@@ -5,7 +5,7 @@ set(CMAKE_BUILD_TYPE Release)
 #   warning: dynamic exception specifications are deprecated in C++11
 add_definitions(-Wno-deprecated)
 
-find_package(catkin REQUIRED
+find_package(catkin REQUIRED COMPONENTS
   rtmbuild
   fullbody_inverse_kinematics_solver
   cpp_filters)

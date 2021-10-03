@@ -32,13 +32,15 @@ PrimitiveMotionLevelController::PrimitiveMotionLevelController(RTC::Manager* man
 RTC::ReturnCode_t PrimitiveMotionLevelController::onInitialize(){
   bindParameter("debugLevel", this->m_debugLevel_, "0");
 
-  addInPort("qRef", this->ports_.m_qRefIn_);// from sh
-  addInPort("basePosRef", this->ports_.m_basePosRefIn_);
-  addInPort("baseRpyRef", this->ports_.m_baseRpyRefIn_);
-  addInPort("primitiveCommandRefRef", this->ports_.m_primitiveCommandRefIn_);
-  addOutPort("qCom", this->ports_.m_qComOut_);
-  addOutPort("basePosCom", this->ports_.m_basePosComOut_);
-  addOutPort("baseRpyCom", this->ports_.m_baseRpyComOut_);
+  addInPort("qRefin", this->ports_.m_qRefIn_);// from sh
+  addInPort("basePosRefin", this->ports_.m_basePosRefIn_);
+  addInPort("baseRpyRefin", this->ports_.m_baseRpyRefIn_);
+  addInPort("primitiveCommandRefin", this->ports_.m_primitiveCommandRefIn_);
+  addOutPort("qComOut", this->ports_.m_qComOut_);
+  addOutPort("basePosComOut", this->ports_.m_basePosComOut_);
+  addOutPort("baseRpyComOut", this->ports_.m_baseRpyComOut_);
+  addOutPort("baseTformComOut", this->ports_.m_baseTformComOut_);
+  addOutPort("primitiveCommandComOut", this->ports_.m_primitiveCommandComOut_);
   this->ports_.m_PrimitiveMotionLevelControllerServicePort_.registerProvider("service0", "PrimitiveMotionLevelControllerService", this->ports_.m_service0_);
   addPort(this->ports_.m_PrimitiveMotionLevelControllerServicePort_);
 
@@ -150,7 +152,7 @@ namespace PrimitiveMotionLevelControllerImpl {
     robot_com->calcForwardKinematics();
   }
 
-  void calcOutputPorts(const std::string& instance_name, PrimitiveMotionLevelController::Ports& port, double output_ratio, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_com) {
+  void calcOutputPorts(const std::string& instance_name, PrimitiveMotionLevelController::Ports& port, double output_ratio, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_com, std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap) {
     // qCom
     if (port.m_qRef_.data.length() == robot_com->numJoints()){
       port.m_qCom_.data.length(robot_com->numJoints());
@@ -161,20 +163,45 @@ namespace PrimitiveMotionLevelControllerImpl {
       port.m_qComOut_.write();
     }
     // basePos
-    cnoid::Vector3 ouputBasePos = output_ratio * robot_com->rootLink()->p() + (1 - output_ratio) * robot_ref->rootLink()->p();
-    port.m_basePosCom_.data.x = ouputBasePos[0];
-    port.m_basePosCom_.data.y = ouputBasePos[1];
-    port.m_basePosCom_.data.z = ouputBasePos[2];
+    cnoid::Vector3 outputBasePos = output_ratio * robot_com->rootLink()->p() + (1 - output_ratio) * robot_ref->rootLink()->p();
+    port.m_basePosCom_.data.x = outputBasePos[0];
+    port.m_basePosCom_.data.y = outputBasePos[1];
+    port.m_basePosCom_.data.z = outputBasePos[2];
     port.m_basePosCom_.tm = port.m_qRef_.tm;
     port.m_basePosComOut_.write();
     // baseRpy
-    cnoid::Vector3 outputBaseRpy = cnoid::rpyFromRot(cnoid::Matrix3(cnoid::Quaterniond(robot_ref->rootLink()->R()).slerp(output_ratio, cnoid::Quaterniond(robot_com->rootLink()->R()))));
+    cnoid::Matrix3 outputBaseR = cnoid::Matrix3(cnoid::Quaterniond(robot_ref->rootLink()->R()).slerp(output_ratio, cnoid::Quaterniond(robot_com->rootLink()->R())));
+    cnoid::Vector3 outputBaseRpy = cnoid::rpyFromRot(outputBaseR);
     port.m_baseRpyCom_.data.r = outputBaseRpy[0];
     port.m_baseRpyCom_.data.p = outputBaseRpy[1];
     port.m_baseRpyCom_.data.y = outputBaseRpy[2];
     port.m_baseRpyCom_.tm = port.m_qRef_.tm;
     port.m_baseRpyComOut_.write();
-
+    // m_baseTform
+    port.m_baseTformCom_.data.length(12);
+    for(int i=0;i<3;i++) port.m_baseTformCom_.data[i] = outputBasePos[i];
+    for(int i=0;i<3;i++) {
+      for(int j=0;j<3;j++) {
+        port.m_baseTformCom_.data[3+i+j*3] = outputBaseR(i,j);// row major
+      }
+    }
+    port.m_baseTformCom_.tm = port.m_qRef_.tm;
+    port.m_baseTformComOut_.write();
+    // primitiveCommandCom
+    port.m_primitiveCommandCom_ = port.m_primitiveCommandRef_;
+    port.m_primitiveCommandCom_.tm = port.m_qRef_.tm;
+    for(int i=0;i<port.m_primitiveCommandCom_.data.length();i++){
+      std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> primitiveCommand = primitiveCommandMap[std::string(port.m_primitiveCommandCom_.data[i].name)];
+      cnoid::Position pose = robot_com->link(primitiveCommand->parentLinkName())->T() * primitiveCommand->localPose();
+      port.m_primitiveCommandCom_.data[i].pose.position.x = pose.translation()[0];
+      port.m_primitiveCommandCom_.data[i].pose.position.y = pose.translation()[1];
+      port.m_primitiveCommandCom_.data[i].pose.position.z = pose.translation()[2];
+      cnoid::Vector3 rpy = cnoid::rpyFromRot(pose.linear());
+      port.m_primitiveCommandCom_.data[i].pose.orientation.r = rpy[0];
+      port.m_primitiveCommandCom_.data[i].pose.orientation.p = rpy[1];
+      port.m_primitiveCommandCom_.data[i].pose.orientation.y = rpy[2];
+    }
+    port.m_primitiveCommandComOut_.write();
   }
 
 }
@@ -210,7 +237,7 @@ RTC::ReturnCode_t PrimitiveMotionLevelController::onExecute(RTC::UniqueId ec_id)
 
   // write outport
   double output_ratio; this->outputRatioInterpolator_->get(output_ratio);
-  PrimitiveMotionLevelControllerImpl::calcOutputPorts(instance_name, this->ports_, output_ratio, this->m_robot_ref_, this->m_robot_com_);
+  PrimitiveMotionLevelControllerImpl::calcOutputPorts(instance_name, this->ports_, output_ratio, this->m_robot_ref_, this->m_robot_com_, this->primitiveCommandMap_);
 
   this->loop_++;
   return RTC::RTC_OK;

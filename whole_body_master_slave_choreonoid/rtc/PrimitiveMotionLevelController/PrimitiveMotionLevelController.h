@@ -39,6 +39,8 @@ public:
       m_qComOut_("qComOut", m_qCom_),
       m_basePosComOut_("basePosComOut", m_basePosCom_),
       m_baseRpyComOut_("baseRpyComOut", m_baseRpyCom_),
+      m_baseTformComOut_("baseTformComOut", m_baseTformCom_),
+      m_primitiveCommandComOut_("primitiveCommandComOut", m_primitiveCommandCom_),
 
       m_PrimitiveMotionLevelControllerServicePort_("PrimitiveMotionLevelControllerService") {
     }
@@ -58,6 +60,10 @@ public:
     RTC::OutPort<RTC::TimedPoint3D> m_basePosComOut_;
     RTC::TimedOrientation3D m_baseRpyCom_;
     RTC::OutPort<RTC::TimedOrientation3D> m_baseRpyComOut_;
+    RTC::TimedDoubleSeq m_baseTformCom_; // for HrpsysSeqStateROSBridge
+    RTC::OutPort<RTC::TimedDoubleSeq> m_baseTformComOut_; // for HrpsysSeqStateROSBridge
+    WholeBodyMasterSlaveChoreonoidIdl::TimedPrimitiveStateSeq m_primitiveCommandCom_;
+    RTC::OutPort <WholeBodyMasterSlaveChoreonoidIdl::TimedPrimitiveStateSeq> m_primitiveCommandComOut_;
 
     PrimitiveMotionLevelControllerService_impl m_service0_;
     RTC::CorbaPort m_PrimitiveMotionLevelControllerServicePort_;
