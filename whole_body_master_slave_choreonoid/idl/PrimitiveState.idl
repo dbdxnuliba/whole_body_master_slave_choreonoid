@@ -11,7 +11,7 @@ module WholeBodyMasterSlaveChoreonoidIdl
     RTC::Pose3D localPose;
 
     // world frame
-    double time;
+    double time; // interpolation time
     RTC::Pose3D pose;
     DblSequence6 wrench;
 

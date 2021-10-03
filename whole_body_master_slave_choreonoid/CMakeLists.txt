@@ -14,12 +14,21 @@ cmake_policy(SET CMP0046 OLD)
 find_package(catkin REQUIRED COMPONENTS
   rtmbuild
   roscpp
+  message_generation
+  std_msgs
+  geometry_msgs
   hrpsys_ros_bridge
   fullbody_inverse_kinematics_solver
   )
 
-# initialize rtmbuild
-rtmbuild_init()
+add_message_files(
+  FILES
+  PrimitiveState.msg
+  PrimitiveStateArray.msg
+  )
+
+# initialize rtmbuild (generate_messages is called)
+rtmbuild_init(geometry_msgs)
 
 catkin_package(
 #  INCLUDE_DIRS include
