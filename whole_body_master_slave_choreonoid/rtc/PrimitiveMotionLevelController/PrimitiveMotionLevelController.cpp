@@ -47,10 +47,12 @@ RTC::ReturnCode_t PrimitiveMotionLevelController::onInitialize(){
   this->loop_ = 0;
 
   cnoid::BodyLoader bodyLoader;
-  RTC::Properties& prop = this->getProperties();
-  cnoid::BodyPtr robot = bodyLoader.load(prop["model"]);
+  std::string fileName;
+  if(this->getProperties().hasKey("model")) fileName = std::string(this->getProperties()["model"]);
+  else fileName = std::string(this->m_pManager->getConfig()["model"]); // 引数 -o で与えたプロパティを捕捉
+  cnoid::BodyPtr robot = bodyLoader.load(fileName);
   if(!robot){
-    std::cerr << "\x1b[31m[" << m_profile.instance_name << "] " << "failed to load model[" << prop["model"] << "]" << "\x1b[39m" << std::endl;
+    std::cerr << "\x1b[31m[" << m_profile.instance_name << "] " << "failed to load model[" << fileName << "]" << "\x1b[39m" << std::endl;
     return RTC::RTC_ERROR;
   }
   this->m_robot_ref_ = robot;
@@ -124,9 +126,9 @@ namespace PrimitiveMotionLevelControllerImpl {
       break;
     case PrimitiveMotionLevelController::ControlMode::MODE_SYNC_TO_IDLE:
       if(mode.pre() == PrimitiveMotionLevelController::ControlMode::MODE_CONTROL){
-        outputRatioInterpolator->setGoal(0.0, 3.0, true);
+        outputRatioInterpolator->setGoal(0.0, 3.0);
       }
-      if (outputRatioInterpolator->isEmpty()) {
+      if (!outputRatioInterpolator->isEmpty()) {
         outputRatioInterpolator->get(tmp, dt);
       }else{
         mode.setNextMode(PrimitiveMotionLevelController::ControlMode::MODE_IDLE);
@@ -182,7 +184,7 @@ namespace PrimitiveMotionLevelControllerImpl {
     for(int i=0;i<3;i++) port.m_baseTformCom_.data[i] = outputBasePos[i];
     for(int i=0;i<3;i++) {
       for(int j=0;j<3;j++) {
-        port.m_baseTformCom_.data[3+i+j*3] = outputBaseR(i,j);// row major
+        port.m_baseTformCom_.data[3+i*3+j] = outputBaseR(i,j);// row major
       }
     }
     port.m_baseTformCom_.tm = port.m_qRef_.tm;

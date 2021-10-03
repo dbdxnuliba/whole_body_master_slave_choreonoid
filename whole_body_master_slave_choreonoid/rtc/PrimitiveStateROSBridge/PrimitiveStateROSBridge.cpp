@@ -15,10 +15,13 @@ RTC::ReturnCode_t PrimitiveStateROSBridge::onInitialize(){
   addInPort("primitiveStateIn", m_primitiveCommandRTMIn_);
 
   cnoid::BodyLoader bodyLoader;
-  RTC::Properties& prop = this->getProperties();
-  this->robot_vrml_ = bodyLoader.load(prop["model"]);
+
+  std::string fileName;
+  if(this->getProperties().hasKey("model")) fileName = std::string(this->getProperties()["model"]);
+  else fileName = std::string(this->m_pManager->getConfig()["model"]); // 引数 -o で与えたプロパティを捕捉
+  this->robot_vrml_ = bodyLoader.load(fileName);
   if(!this->robot_vrml_){
-    std::cerr << "\x1b[31m[" << m_profile.instance_name << "] " << "failed to load model[" << prop["model"] << "]" << "\x1b[39m" << std::endl;
+    std::cerr << "\x1b[31m[" << m_profile.instance_name << "] " << "failed to load model[" << fileName << "]" << "\x1b[39m" << std::endl;
     return RTC::RTC_ERROR;
   }
 
@@ -74,7 +77,10 @@ RTC::ReturnCode_t PrimitiveStateROSBridge::onExecute(RTC::UniqueId ec_id){
       quat.setRPY(m_primitiveCommandRTM_.data[i].localPose.orientation.r,
                   m_primitiveCommandRTM_.data[i].localPose.orientation.p,
                   m_primitiveCommandRTM_.data[i].localPose.orientation.y);
-      state.local_pose.orientation = tf2::toMsg(quat);
+      state.local_pose.orientation.x = quat.x();
+      state.local_pose.orientation.y = quat.y();
+      state.local_pose.orientation.z = quat.z();
+      state.local_pose.orientation.w = quat.w();
       state.time = m_primitiveCommandRTM_.data[i].time;
       state.pose.position.x = m_primitiveCommandRTM_.data[i].pose.position.x;
       state.pose.position.y = m_primitiveCommandRTM_.data[i].pose.position.y;
@@ -82,7 +88,10 @@ RTC::ReturnCode_t PrimitiveStateROSBridge::onExecute(RTC::UniqueId ec_id){
       quat.setRPY(m_primitiveCommandRTM_.data[i].pose.orientation.r,
                   m_primitiveCommandRTM_.data[i].pose.orientation.p,
                   m_primitiveCommandRTM_.data[i].pose.orientation.y);
-      state.pose.orientation = tf2::toMsg(quat);
+      state.pose.orientation.x = quat.x();
+      state.pose.orientation.y = quat.y();
+      state.pose.orientation.z = quat.z();
+      state.pose.orientation.w = quat.w();
       state.wrench.resize(6);
       for(int j=0;j<6;j++) state.wrench[j] = m_primitiveCommandRTM_.data[i].wrench[j];
       state.M.resize(6);
@@ -115,18 +124,14 @@ void PrimitiveStateROSBridge::topicCallback(const whole_body_master_slave_choreo
     m_primitiveCommandROS_.data[i].localPose.position.x = msg->primitive_state[i].local_pose.position.x;
     m_primitiveCommandROS_.data[i].localPose.position.y = msg->primitive_state[i].local_pose.position.y;
     m_primitiveCommandROS_.data[i].localPose.position.z = msg->primitive_state[i].local_pose.position.z;
-    tf2::getEulerYPR(msg->primitive_state[i].local_pose.orientation,
-                     m_primitiveCommandROS_.data[i].localPose.orientation.y,
-                     m_primitiveCommandROS_.data[i].localPose.orientation.p,
-                     m_primitiveCommandROS_.data[i].localPose.orientation.r);
+    tf2::Quaternion quat(msg->primitive_state[i].local_pose.orientation.x,msg->primitive_state[i].local_pose.orientation.y,msg->primitive_state[i].local_pose.orientation.z,msg->primitive_state[i].local_pose.orientation.w);
+    tf2::Matrix3x3(quat).getRPY(m_primitiveCommandROS_.data[i].localPose.orientation.r,m_primitiveCommandROS_.data[i].localPose.orientation.p,m_primitiveCommandROS_.data[i].localPose.orientation.y);
     m_primitiveCommandROS_.data[i].time = msg->primitive_state[i].time;
     m_primitiveCommandROS_.data[i].pose.position.x = msg->primitive_state[i].pose.position.x;
     m_primitiveCommandROS_.data[i].pose.position.y = msg->primitive_state[i].pose.position.y;
     m_primitiveCommandROS_.data[i].pose.position.z = msg->primitive_state[i].pose.position.z;
-    tf2::getEulerYPR(msg->primitive_state[i].pose.orientation,
-                     m_primitiveCommandROS_.data[i].pose.orientation.y,
-                     m_primitiveCommandROS_.data[i].pose.orientation.p,
-                     m_primitiveCommandROS_.data[i].pose.orientation.r);
+    quat = tf2::Quaternion(msg->primitive_state[i].pose.orientation.x,msg->primitive_state[i].pose.orientation.y,msg->primitive_state[i].pose.orientation.z,msg->primitive_state[i].pose.orientation.w);
+    tf2::Matrix3x3(quat).getRPY(m_primitiveCommandROS_.data[i].pose.orientation.r,m_primitiveCommandROS_.data[i].pose.orientation.p,m_primitiveCommandROS_.data[i].pose.orientation.y);
     if(msg->primitive_state[i].wrench.size() == 6){
       for(int j=0;j<msg->primitive_state[i].wrench.size();j++) m_primitiveCommandROS_.data[i].wrench[j] = msg->primitive_state[i].wrench[j];
     }

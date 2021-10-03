@@ -5,9 +5,9 @@
 #     - name: <name>
 #       parent_link_name: <linkname for URDF>
 #       local_pose: [x, y, z, x, y, z, w]
-#       M: [x ,y, z, rx, ry, rz] # default 0
-#       D: [x ,y, z, rx, ry, rz] # default 0
-#       K: [x ,y, z, rx, ry, rz] # default 0
+#       M: [x ,y, z, rx, ry, rz] # default 10, 10, 10, 5, 5, 5
+#       D: [x ,y, z, rx, ry, rz] # default 200, 200, 200, 100, 100, 100
+#       K: [x ,y, z, rx, ry, rz] # default 400, 400, 400, 200, 200, 200
 #       wrench_gain: [x ,y, z, rx, ry, rz] # default 0
 #       support_com: <bool> #default false
 #       time: <double> # default 0.1
@@ -53,15 +53,15 @@ class EndEffector:
         if "M" in param:
             self.state.M = param["M"]
         else:
-            self.state.M = [0.0] * 6
+            self.state.M = [10.0, 10.0, 10.0, 5.0, 5.0, 5.0]
         if "D" in param:
             self.state.D = param["D"]
         else:
-            self.state.D = [0.0] * 6
+            self.state.D = [200.0, 200.0, 200.0, 100.0, 100.0, 100.0]
         if "K" in param:
             self.state.K = param["K"]
         else:
-            self.state.K = [0.0] * 6
+            self.state.K = [400.0, 400.0, 400.0, 200.0, 200.0, 200.0]
         if "wrench_gain" in param:
             self.state.wrench_gain = param["wrench_gain"]
         else:

@@ -1,6 +1,7 @@
 #include "PrimitiveCommand.h"
 
 #include <cnoid/EigenUtil>
+#include <iostream>
 
 namespace PrimitiveMotionLevel {
 
@@ -12,7 +13,7 @@ namespace PrimitiveMotionLevel {
     targetPosePrev_(cnoid::Position::Identity()),
     targetPosePrevPrev_(cnoid::Position::Identity()),
     targetPositionInterpolator_(cnoid::Vector3::Zero(),cnoid::Vector3::Zero(),cnoid::Vector3::Zero(),cpp_filters::HOFFARBIB),
-    targetOrientationInterpolator_(cnoid::Matrix3::Zero(),cnoid::Vector3::Zero(),cnoid::Vector3::Zero(),cpp_filters::HOFFARBIB),
+    targetOrientationInterpolator_(cnoid::Matrix3::Identity(),cnoid::Vector3::Zero(),cnoid::Vector3::Zero(),cpp_filters::HOFFARBIB),
     targetWrench_(cnoid::Vector6::Zero()),
     targetWrenchInterpolator_(cnoid::Vector6::Zero(),cnoid::Vector6::Zero(),cnoid::Vector6::Zero(),cpp_filters::HOFFARBIB),
     M_(cnoid::Vector6::Zero()),

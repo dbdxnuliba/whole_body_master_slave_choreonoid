@@ -27,8 +27,8 @@ namespace PrimitiveMotionLevel {
     offsetPrevLocal.tail<3>() = eeR.transpose() * offsetPrev.tail<3>();
 
     cnoid::Vector6 dOffsetPrevLocal; //local系
-    offsetPrevLocal.head<3>() = eeR.transpose() * this->dOffsetPrev_.head<3>();
-    offsetPrevLocal.tail<3>() = eeR.transpose() * this->dOffsetPrev_.tail<3>();
+    dOffsetPrevLocal.head<3>() = eeR.transpose() * this->dOffsetPrev_.head<3>();
+    dOffsetPrevLocal.tail<3>() = eeR.transpose() * this->dOffsetPrev_.tail<3>();
 
     cnoid::Vector6 dOffsetLocal; //local系
     for(size_t i=0;i<6;i++){
@@ -75,8 +75,12 @@ namespace PrimitiveMotionLevel {
       this->positionConstraint_->precision() << 1e-4, 1e-4, 1e-4, 0.001745, 0.001745, 0.001745;
       if(this->primitiveCommand_->supportCOM()) this->positionConstraint_->weight() << 1.0,1.0,1.0,1.0,1.0,1.0;
       else this->positionConstraint_->weight() << 0.1,0.1,0.1,0.1,0.1,0.1;
-      if(this->primitiveCommand_->M().head<3>().norm() == this->primitiveCommand_->D().head<3>().norm() == this->primitiveCommand_->K().head<3>().norm() == 0.0) this->positionConstraint_->weight().head<3>() << 0.0,0.0,0.0;
-      if(this->primitiveCommand_->M().tail<3>().norm() == this->primitiveCommand_->D().tail<3>().norm() == this->primitiveCommand_->K().tail<3>().norm() == 0.0) this->positionConstraint_->weight().tail<3>() << 0.0,0.0,0.0;
+      if(this->primitiveCommand_->M().head<3>().norm() == 0.0 &&
+         this->primitiveCommand_->D().head<3>().norm() == 0.0 &&
+         this->primitiveCommand_->K().head<3>().norm() == 0.0) this->positionConstraint_->weight().head<3>() << 0.0,0.0,0.0;
+      if(this->primitiveCommand_->M().tail<3>().norm() == 0.0 &&
+         this->primitiveCommand_->D().tail<3>().norm() == 0.0 &&
+         this->primitiveCommand_->K().tail<3>().norm() == 0.0) this->positionConstraint_->weight().tail<3>() << 0.0,0.0,0.0;
       ikConstraints.push_back(this->positionConstraint_);
     }
   }
@@ -123,18 +127,19 @@ namespace PrimitiveMotionLevel {
   void PositionController::solveFullbodyIK(cnoid::BodyPtr& robot_com, std::vector<std::shared_ptr<IK::IKConstraint> >& primitiveMotionLevelIKConstraints, std::vector<std::shared_ptr<IK::IKConstraint> >& commandLevelIKConstraints, cnoid::VectorX& jlim_avoid_weight_old) {
     if(jlim_avoid_weight_old.size() != 6+robot_com->numJoints()) jlim_avoid_weight_old = cnoid::VectorX::Zero(6+robot_com->numJoints());
     cnoid::VectorX dq_weight_all = cnoid::VectorX::Ones(6+robot_com->numJoints());
-    if(robot_com->rootLink()->jointType() == cnoid::Link::FIXED_JOINT) dq_weight_all.head<6>() << 0.0,0.0,0.0,0.0,0.0,0.0;
+    if(robot_com->rootLink()->jointType() == cnoid::Link::FIXED_JOINT) dq_weight_all.head<6>() = cnoid::Vector6::Zero();
 
     std::vector<std::shared_ptr<IK::IKConstraint> > ikConstraint;
     ikConstraint.insert(ikConstraint.end(), primitiveMotionLevelIKConstraints.begin(), primitiveMotionLevelIKConstraints.end());
     ikConstraint.insert(ikConstraint.end(), commandLevelIKConstraints.begin(), commandLevelIKConstraints.end());
+    for(int i=0;i<ikConstraint.size();i++) ikConstraint[i]->debuglevel() = 0;
     fik::solveFullbodyIKLoopFast(robot_com,
                                  ikConstraint,
                                  jlim_avoid_weight_old,
                                  dq_weight_all,
                                  1,//loop
                                  1e-6,
-                                 1//debug
+                                 0//debug
                                  );
   }
 
