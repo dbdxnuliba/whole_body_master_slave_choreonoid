@@ -21,7 +21,8 @@ namespace PrimitiveMotionLevel {
     K_(cnoid::Vector6::Zero()),
     actWrench_(cnoid::Vector6::Zero()),
     wrenchGain_(cnoid::Vector6::Zero()),
-    supportCOM_(false)
+    supportCOM_(false),
+    isInitial_(true)
   {
   }
 
@@ -36,16 +37,27 @@ namespace PrimitiveMotionLevel {
     pose.translation()[1] = idl.pose.position.y;
     pose.translation()[2] = idl.pose.position.z;
     pose.linear() = cnoid::rotFromRpy(idl.pose.orientation.r,idl.pose.orientation.p,idl.pose.orientation.y);
-    this->targetPositionInterpolator_.setGoal(pose.translation(),idl.time);
-    this->targetOrientationInterpolator_.setGoal(pose.linear(),idl.time);
+    if(!this->isInitial_ && idl.time > 0.0){
+      this->targetPositionInterpolator_.setGoal(pose.translation(),idl.time);
+      this->targetOrientationInterpolator_.setGoal(pose.linear(),idl.time);
+    }else{
+      this->targetPositionInterpolator_.reset(pose.translation());
+      this->targetOrientationInterpolator_.reset(pose.linear());
+    }
     cnoid::Vector6 wrench; for(size_t i=0;i<6;i++) wrench[i] = idl.wrench[i];
-    this->targetWrenchInterpolator_.setGoal(wrench,idl.time);
+    if(!this->isInitial_ && idl.time > 0.0){
+      this->targetWrenchInterpolator_.setGoal(wrench,idl.time);
+    }else{
+      this->targetWrenchInterpolator_.reset(wrench);
+    }
     for(size_t i=0;i<6;i++) this->M_[i] = idl.M[i];
     for(size_t i=0;i<6;i++) this->D_[i] = idl.D[i];
     for(size_t i=0;i<6;i++) this->K_[i] = idl.K[i];
     for(size_t i=0;i<6;i++) this->actWrench_[i] = idl.actWrench[i];
     for(size_t i=0;i<6;i++) this->wrenchGain_[i] = idl.wrenchGain[i];
     this->supportCOM_ = idl.supportCOM;
+
+    this->isInitial_ = false;
   }
 
   void PrimitiveCommand::updateTargetForOneStep(double dt) {

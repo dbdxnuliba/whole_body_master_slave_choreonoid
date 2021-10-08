@@ -41,6 +41,8 @@ namespace PrimitiveMotionLevel {
     cnoid::Vector6 wrenchGain_; // local frame // Position control only
 
     bool supportCOM_;
+
+    bool isInitial_;
   };
 }
 

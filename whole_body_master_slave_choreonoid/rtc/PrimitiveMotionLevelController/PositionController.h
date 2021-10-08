@@ -25,10 +25,22 @@ namespace PrimitiveMotionLevel {
       PositionTask(const std::string& name);
       void updateFromPrimitiveCommand(const std::shared_ptr<const PrimitiveMotionLevel::PrimitiveCommand>& primitiveCommand) {primitiveCommand_ = primitiveCommand;}
       void calcImpedanceControl(double dt);
-      void getIKConstraints(std::vector<std::shared_ptr<IK::IKConstraint> >& ikConstraints, const cnoid::BodyPtr& robot_com);
+      void getIKConstraintsforSupportEEF(std::vector<std::shared_ptr<IK::IKConstraint> >& ikConstraints, const cnoid::BodyPtr& robot_com, double weight=1.0);
+      void getIKConstraintsforInteractEEF(std::vector<std::shared_ptr<IK::IKConstraint> >& ikConstraints, const cnoid::BodyPtr& robot_com, double weight=1.0);
+      void getIKConstraintsforCOM(std::vector<std::shared_ptr<IK::IKConstraint> >& ikConstraints, const cnoid::BodyPtr& robot_com, double weight=1.0);
       const std::string& name() const { return name_;}
       const std::shared_ptr<const PrimitiveMotionLevel::PrimitiveCommand>& primitiveCommand() const {return primitiveCommand_;}
     protected:
+      static void calcPositionConstraint(const cnoid::BodyPtr& robot_com,
+                                         const std::shared_ptr<const PrimitiveMotionLevel::PrimitiveCommand>& primitiveCommand,
+                                         const cnoid::Position& offset,
+                                         double weight,
+                                         std::shared_ptr<IK::PositionConstraint>& positionConstraint);
+      static void calcCOMConstraint(const cnoid::BodyPtr& robot_com,
+                                    const std::shared_ptr<const PrimitiveMotionLevel::PrimitiveCommand>& primitiveCommand,
+                                    double weight,
+                                    std::shared_ptr<IK::COMConstraint>& comConstraint);
+
       std::string name_;
       std::shared_ptr<const PrimitiveMotionLevel::PrimitiveCommand> primitiveCommand_;
 
@@ -38,15 +50,26 @@ namespace PrimitiveMotionLevel {
       std::shared_ptr<IK::PositionConstraint> positionConstraint_;
       std::shared_ptr<IK::COMConstraint> comConstraint_;
     };
+
+    class FullbodyIKSolver {
+    public:
+      void solveFullbodyIK(cnoid::BodyPtr& robot_com,
+                           const cnoid::BodyPtr& robot_ref,
+                           const std::map<std::string, std::shared_ptr<PositionTask> >& positionTaskMap_);
+    protected:
+      cnoid::VectorX jlim_avoid_weight_old_;
+
+      std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointAngleConstraint> > jointAngleConstraint_;
+      std::shared_ptr<IK::PositionConstraint> rootLinkConstraint_;
+    };
   protected:
     std::map<std::string, std::shared_ptr<PositionTask> > positionTaskMap_;
-    std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointAngleConstraint> > jointAngleConstraint_;
-    cnoid::VectorX jlim_avoid_weight_old_;
+
+    FullbodyIKSolver fullbodyIKSolver_;
 
     // static functions
     static void getPrimitiveCommand(const std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap, std::map<std::string, std::shared_ptr<PositionController::PositionTask> >& positionTaskMap);
-    static void getCommandLevelIKConstraints(const cnoid::BodyPtr& robot_ref, std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointAngleConstraint> > jointAngleConstraint, std::vector<std::shared_ptr<IK::IKConstraint> >& commandLevelIKConstraints, const cnoid::BodyPtr& robot_com);
-    static void solveFullbodyIK(cnoid::BodyPtr& robot_com, std::vector<std::shared_ptr<IK::IKConstraint> >& primitiveMotionLevelIKConstraints, std::vector<std::shared_ptr<IK::IKConstraint> >& commandLevelIKConstraints, cnoid::VectorX& jlim_avoid_weight_old);
+    static void getCommandLevelIKConstraints(const cnoid::BodyPtr& robot_ref, std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointAngleConstraint> > jointAngleConstraint, std::shared_ptr<IK::PositionConstraint>& rootLinkConstraint, std::vector<std::shared_ptr<IK::IKConstraint> >& commandLevelIKConstraints, const cnoid::BodyPtr& robot_com, double weight = 1.0);
   };
 }
 

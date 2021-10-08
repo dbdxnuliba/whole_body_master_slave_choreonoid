@@ -53,42 +53,68 @@ namespace PrimitiveMotionLevel {
     this->dOffsetPrev_ = dOffset / dt;
   }
 
-  void PositionController::PositionTask::getIKConstraints(std::vector<std::shared_ptr<IK::IKConstraint> >& ikConstraints, const cnoid::BodyPtr& robot_com) {
-    if(this->name_ == "com"){
-      this->comConstraint_->robot() = robot_com;
-      this->comConstraint_->targetPos() = this->primitiveCommand_->targetPose().translation();
-      this->positionConstraint_->maxError() << 0.1, 0.1, 0.1;
-      this->positionConstraint_->precision() << 1e-4, 1e-4, 1e-4;
-      this->positionConstraint_->weight() << 1.0,1.0,1.0;
-      ikConstraints.push_back(this->comConstraint_);
-    } else { //if(this->name_ == "com")
-      if(!robot_com->link(this->primitiveCommand_->parentLinkName())){
-        std::cerr << "link " << this->primitiveCommand_->parentLinkName() << " not exist" << std::endl;
-        return;
-      }
-      this->positionConstraint_->A_link() = robot_com->link(this->primitiveCommand_->parentLinkName());
-      this->positionConstraint_->A_localpos() = this->primitiveCommand_->localPose();
-      this->positionConstraint_->B_link() = nullptr;
-      this->positionConstraint_->B_localpos().translation() = this->offset_.translation() + this->primitiveCommand_->targetPose().translation();
-      this->positionConstraint_->B_localpos().linear() = this->offset_.linear() * this->primitiveCommand_->targetPose().linear();
-      this->positionConstraint_->maxError() << 0.1, 0.1, 0.1, 0.1, 0.1, 0.1;
-      this->positionConstraint_->precision() << 1e-4, 1e-4, 1e-4, 0.001745, 0.001745, 0.001745;
-      if(this->primitiveCommand_->supportCOM()) this->positionConstraint_->weight() << 1.0,1.0,1.0,1.0,1.0,1.0;
-      else this->positionConstraint_->weight() << 0.1,0.1,0.1,0.1,0.1,0.1;
-      if(this->primitiveCommand_->M().head<3>().norm() == 0.0 &&
-         this->primitiveCommand_->D().head<3>().norm() == 0.0 &&
-         this->primitiveCommand_->K().head<3>().norm() == 0.0) this->positionConstraint_->weight().head<3>() << 0.0,0.0,0.0;
-      if(this->primitiveCommand_->M().tail<3>().norm() == 0.0 &&
-         this->primitiveCommand_->D().tail<3>().norm() == 0.0 &&
-         this->primitiveCommand_->K().tail<3>().norm() == 0.0) this->positionConstraint_->weight().tail<3>() << 0.0,0.0,0.0;
+  void PositionController::PositionTask::getIKConstraintsforSupportEEF(std::vector<std::shared_ptr<IK::IKConstraint> >& ikConstraints, const cnoid::BodyPtr& robot_com, double weight) {
+    if(this->name_ != "com" && this->primitiveCommand_->supportCOM()){
+      PositionTask::calcPositionConstraint(robot_com, this->primitiveCommand_, this->offset_, weight, this->positionConstraint_);
       ikConstraints.push_back(this->positionConstraint_);
     }
   }
 
+  void PositionController::PositionTask::getIKConstraintsforInteractEEF(std::vector<std::shared_ptr<IK::IKConstraint> >& ikConstraints, const cnoid::BodyPtr& robot_com, double weight) {
+    if(this->name_ != "com" && !this->primitiveCommand_->supportCOM()){
+      PositionTask::calcPositionConstraint(robot_com, this->primitiveCommand_, this->offset_, weight, this->positionConstraint_);
+      ikConstraints.push_back(this->positionConstraint_);
+    }
+  }
+
+  void PositionController::PositionTask::calcPositionConstraint(const cnoid::BodyPtr& robot_com,
+                                                                const std::shared_ptr<const PrimitiveMotionLevel::PrimitiveCommand>& primitiveCommand,
+                                                                const cnoid::Position& offset,
+                                                                double weight,
+                                                                std::shared_ptr<IK::PositionConstraint>& positionConstraint){
+    if(!robot_com->link(primitiveCommand->parentLinkName())){
+      std::cerr << "link " << primitiveCommand->parentLinkName() << " not exist" << std::endl;
+      return;
+    }
+    positionConstraint->A_link() = robot_com->link(primitiveCommand->parentLinkName());
+    positionConstraint->A_localpos() = primitiveCommand->localPose();
+    positionConstraint->B_link() = nullptr;
+    positionConstraint->B_localpos().translation() = offset.translation() + primitiveCommand->targetPose().translation();
+    positionConstraint->B_localpos().linear() = offset.linear() * primitiveCommand->targetPose().linear();
+    positionConstraint->maxError() << 0.1, 0.1, 0.1, 0.1, 0.1, 0.1;
+    positionConstraint->precision() << 1e-4, 1e-4, 1e-4, 0.001745, 0.001745, 0.001745;
+    positionConstraint->weight() << 1.0,1.0,1.0,1.0,1.0,1.0;
+    positionConstraint->weight() *= weight;
+    if(primitiveCommand->M().head<3>().norm() == 0.0 &&
+       primitiveCommand->D().head<3>().norm() == 0.0 &&
+       primitiveCommand->K().head<3>().norm() == 0.0) positionConstraint->weight().head<3>() << 0.0,0.0,0.0;
+    if(primitiveCommand->M().tail<3>().norm() == 0.0 &&
+       primitiveCommand->D().tail<3>().norm() == 0.0 &&
+       primitiveCommand->K().tail<3>().norm() == 0.0) positionConstraint->weight().tail<3>() << 0.0,0.0,0.0;
+  }
+
+  void PositionController::PositionTask::getIKConstraintsforCOM(std::vector<std::shared_ptr<IK::IKConstraint> >& ikConstraints, const cnoid::BodyPtr& robot_com, double weight) {
+    if(this->name_ == "com"){
+      PositionTask::calcCOMConstraint(robot_com, this->primitiveCommand_, weight, this->comConstraint_);
+      ikConstraints.push_back(this->comConstraint_);
+    }
+  }
+
+  void PositionController::PositionTask::calcCOMConstraint(const cnoid::BodyPtr& robot_com,
+                                                           const std::shared_ptr<const PrimitiveMotionLevel::PrimitiveCommand>& primitiveCommand,
+                                                           double weight,
+                                                           std::shared_ptr<IK::COMConstraint>& comConstraint){
+    comConstraint->robot() = robot_com;
+    comConstraint->targetPos() = primitiveCommand->targetPose().translation();
+    comConstraint->maxError() << 0.1, 0.1, 0.1;
+    comConstraint->precision() << 1e-4, 1e-4, 1e-4;
+    comConstraint->weight() << 1.0,1.0,1.0;
+    comConstraint->weight() *= weight;
+  }
+
   void PositionController::reset() {
     this->positionTaskMap_.clear();
-    this->jointAngleConstraint_.clear();
-    jlim_avoid_weight_old_ = cnoid::VectorX::Zero(0);
+    this->fullbodyIKSolver_ = FullbodyIKSolver();
   }
 
   void PositionController::getPrimitiveCommand(const std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap, std::map<std::string, std::shared_ptr<PositionController::PositionTask> >& positionTaskMap) {
@@ -109,38 +135,33 @@ namespace PrimitiveMotionLevel {
     }
   }
 
-  void PositionController::getCommandLevelIKConstraints(const cnoid::BodyPtr& robot_ref, std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointAngleConstraint> > jointAngleConstraint, std::vector<std::shared_ptr<IK::IKConstraint> >& commandLevelIKConstraints, const cnoid::BodyPtr& robot_com) {
+  void PositionController::getCommandLevelIKConstraints(const cnoid::BodyPtr& robot_ref, std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointAngleConstraint> > jointAngleConstraint, std::shared_ptr<IK::PositionConstraint>& rootLinkConstraint, std::vector<std::shared_ptr<IK::IKConstraint> >& commandLevelIKConstraints, const cnoid::BodyPtr& robot_com, double weight) {
     for(size_t i=0;i<robot_com->numJoints();i++){
       if(jointAngleConstraint.find(robot_com->joint(i))==jointAngleConstraint.end()){
         std::shared_ptr<IK::JointAngleConstraint> jac = std::make_shared<IK::JointAngleConstraint>();
         jac->joint() = robot_com->joint(i);
         jac->maxError() = 0.1;
-        jac->weight() = 1e-2;
+        jac->weight() = weight;
         jointAngleConstraint[robot_com->joint(i)] = jac;
       }
       std::shared_ptr<IK::JointAngleConstraint>& jac = jointAngleConstraint[robot_com->joint(i)];
       jac->targetq() = robot_ref->joint(i)->q();
       commandLevelIKConstraints.push_back(jac);
     }
-  }
-
-  void PositionController::solveFullbodyIK(cnoid::BodyPtr& robot_com, std::vector<std::shared_ptr<IK::IKConstraint> >& primitiveMotionLevelIKConstraints, std::vector<std::shared_ptr<IK::IKConstraint> >& commandLevelIKConstraints, cnoid::VectorX& jlim_avoid_weight_old) {
-    if(jlim_avoid_weight_old.size() != 6+robot_com->numJoints()) jlim_avoid_weight_old = cnoid::VectorX::Zero(6+robot_com->numJoints());
-    cnoid::VectorX dq_weight_all = cnoid::VectorX::Ones(6+robot_com->numJoints());
-    if(robot_com->rootLink()->jointType() == cnoid::Link::FIXED_JOINT) dq_weight_all.head<6>() = cnoid::Vector6::Zero();
-
-    std::vector<std::shared_ptr<IK::IKConstraint> > ikConstraint;
-    ikConstraint.insert(ikConstraint.end(), primitiveMotionLevelIKConstraints.begin(), primitiveMotionLevelIKConstraints.end());
-    ikConstraint.insert(ikConstraint.end(), commandLevelIKConstraints.begin(), commandLevelIKConstraints.end());
-    for(int i=0;i<ikConstraint.size();i++) ikConstraint[i]->debuglevel() = 0;
-    fik::solveFullbodyIKLoopFast(robot_com,
-                                 ikConstraint,
-                                 jlim_avoid_weight_old,
-                                 dq_weight_all,
-                                 1,//loop
-                                 1e-6,
-                                 0//debug
-                                 );
+    if(robot_com->rootLink()->jointType() != cnoid::Link::FIXED_JOINT){
+      if(!rootLinkConstraint){
+        rootLinkConstraint = std::make_shared<IK::PositionConstraint>();
+        rootLinkConstraint->A_link() = robot_com->rootLink();
+        rootLinkConstraint->A_localpos() = cnoid::Position::Identity();
+        rootLinkConstraint->B_link() = nullptr;
+        rootLinkConstraint->maxError() << 0.1, 0.1, 0.1, 0.1, 0.1, 0.1;
+        rootLinkConstraint->precision() << 1e-4, 1e-4, 1e-4, 0.001745, 0.001745, 0.001745;
+        rootLinkConstraint->weight() << 1.0,1.0,1.0,1.0,1.0,1.0;
+        rootLinkConstraint->weight() *= weight;
+      }
+      rootLinkConstraint->B_localpos() = robot_ref->rootLink()->T();
+      commandLevelIKConstraints.push_back(rootLinkConstraint);
+    }
   }
 
   void PositionController::control(const std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap, // primitive motion level target
@@ -156,23 +177,43 @@ namespace PrimitiveMotionLevel {
       it->second->calcImpedanceControl(dt);
     }
 
+    // solve ik
+    this->fullbodyIKSolver_.solveFullbodyIK(robot_com, robot_ref, this->positionTaskMap_);
+  }
+
+
+  void PositionController::FullbodyIKSolver::solveFullbodyIK(cnoid::BodyPtr& robot_com,
+                                                             const cnoid::BodyPtr& robot_ref,
+                                                             const std::map<std::string, std::shared_ptr<PositionTask> >& positionTaskMap){
+    if(this->jlim_avoid_weight_old_.size() != 6+robot_com->numJoints()) this->jlim_avoid_weight_old_ = cnoid::VectorX::Zero(6+robot_com->numJoints());
+    cnoid::VectorX dq_weight_all = cnoid::VectorX::Ones(6+robot_com->numJoints());
+    if(robot_com->rootLink()->jointType() == cnoid::Link::FIXED_JOINT) dq_weight_all.head<6>() = cnoid::Vector6::Zero();
+
+    std::vector<std::shared_ptr<IK::IKConstraint> > ikConstraint;
+
     // primitive motion levelのIKConstraintを取得
-    std::vector<std::shared_ptr<IK::IKConstraint> > primitiveMotionLevelIKConstraints;
-    for(std::map<std::string, std::shared_ptr<PositionController::PositionTask> >::iterator it = this->positionTaskMap_.begin(); it != this->positionTaskMap_.end(); it++) {
-      it->second->getIKConstraints(primitiveMotionLevelIKConstraints, robot_com);
+    for(std::map<std::string, std::shared_ptr<PositionController::PositionTask> >::const_iterator it = positionTaskMap.begin(); it != positionTaskMap.end(); it++) {
+      it->second->getIKConstraintsforSupportEEF(ikConstraint, robot_com, 3.0);
+      it->second->getIKConstraintsforInteractEEF(ikConstraint, robot_com, 0.1);
+      it->second->getIKConstraintsforCOM(ikConstraint, robot_com, 3.0);
     }
 
     // command levelのIKConstraintを取得
-    std::vector<std::shared_ptr<IK::IKConstraint> > commandLevelIKConstraints;
-    PositionController::getCommandLevelIKConstraints(robot_ref, this->jointAngleConstraint_, commandLevelIKConstraints, robot_com);
+    PositionController::getCommandLevelIKConstraints(robot_ref, this->jointAngleConstraint_, this->rootLinkConstraint_, ikConstraint, robot_com, 0.01);
 
-    // solve ik
-    PositionController::solveFullbodyIK(robot_com, primitiveMotionLevelIKConstraints, commandLevelIKConstraints, this->jlim_avoid_weight_old_);
+    for(int i=0;i<ikConstraint.size();i++) ikConstraint[i]->debuglevel() = 0;
+    fik::solveFullbodyIKLoopFast(robot_com,
+                                 ikConstraint,
+                                 this->jlim_avoid_weight_old_,
+                                 dq_weight_all,
+                                 1,//loop
+                                 1e-6,
+                                 0//debug
+                                 );
+
   }
 
 }
-
-
 // void PrimitiveMotionLevelController::solveFullbodyIK(HumanPose& ref){
 //     std::vector<IKConstraint> ikc_list;
 //     if(wbms->legged){ // free baselink, lleg, rleg, larm, rarm setting
