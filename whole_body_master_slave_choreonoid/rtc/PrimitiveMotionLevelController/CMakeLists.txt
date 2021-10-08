@@ -8,8 +8,11 @@ add_definitions(-Wno-deprecated)
 find_package(catkin REQUIRED COMPONENTS
   rtmbuild
   fullbody_inverse_kinematics_solver
-  cpp_filters)
+  prioritized_inverse_kinematics_solver
+  cpp_filters
+  )
 find_package(choreonoid REQUIRED)
+find_package(OsqpEigen REQUIRED)
 
 include_directories(
   ${catkin_INCLUDE_DIRS}
@@ -30,7 +33,8 @@ rtmbuild_add_library(PrimitiveMotionLevelController SHARED
   PositionController.cpp)
 target_link_libraries(PrimitiveMotionLevelController
   ${catkin_LIBRARIES}
-  ${CHOREONOID_BODY_LIBRARIES_ABS})
+  ${CHOREONOID_BODY_LIBRARIES_ABS}
+  OsqpEigen::OsqpEigen)
 set_target_properties(PrimitiveMotionLevelController PROPERTIES PREFIX "")
 add_dependencies(PrimitiveMotionLevelController RTMBUILD_${PROJECT_NAME}_genrpc) # wait for rtmbuild_genidl
 

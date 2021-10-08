@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <cnoid/Body>
 #include <fullbody_inverse_kinematics_solver/FullbodyInverseKinematicsSolverFast.h>
+#include <prioritized_inverse_kinematics_solver/PrioritizedInverseKinematicsSolver.h>
 #include <ik_constraint/PositionConstraint.h>
 #include <ik_constraint/COMConstraint.h>
 #include <ik_constraint/JointAngleConstraint.h>
@@ -13,12 +14,16 @@ namespace PrimitiveMotionLevel {
 
   class PositionController {
   public:
+    enum solve_mode_enum{ MODE_FULLBODY, MODE_PRIORITIZED};
+
     void reset();
     void control(const std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap, // primitive motion level target
                  const cnoid::BodyPtr& robot_ref, // command level target
                  cnoid::BodyPtr& robot_com, //output
                  double dt
                  );
+    const solve_mode_enum& solve_mode() const { return this->solve_mode_;}
+    solve_mode_enum& solve_mode() { return this->solve_mode_;}
 
     class PositionTask {
     public:
@@ -62,10 +67,25 @@ namespace PrimitiveMotionLevel {
       std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointAngleConstraint> > jointAngleConstraint_;
       std::shared_ptr<IK::PositionConstraint> rootLinkConstraint_;
     };
+
+    class PrioritizedIKSolver {
+    public:
+      void solvePrioritizedIK(cnoid::BodyPtr& robot_com,
+                              const cnoid::BodyPtr& robot_ref,
+                              const std::map<std::string, std::shared_ptr<PositionTask> >& positionTaskMap_);
+    protected:
+      std::vector<std::shared_ptr<prioritized_qp::Task> > prevTasks_;
+
+      std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointAngleConstraint> > jointAngleConstraint_;
+      std::shared_ptr<IK::PositionConstraint> rootLinkConstraint_;
+    };
   protected:
+    solve_mode_enum solve_mode_ = MODE_PRIORITIZED;
+
     std::map<std::string, std::shared_ptr<PositionTask> > positionTaskMap_;
 
     FullbodyIKSolver fullbodyIKSolver_;
+    PrioritizedIKSolver prioritizedIKSolver_;
 
     // static functions
     static void getPrimitiveCommand(const std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap, std::map<std::string, std::shared_ptr<PositionController::PositionTask> >& positionTaskMap);

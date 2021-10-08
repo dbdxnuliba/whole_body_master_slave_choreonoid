@@ -19,6 +19,7 @@
   <depend>message_runtime</depend>
 
   <depend>fullbody_inverse_kinematics_solver</depend>
+  <depend>prioritized_inverse_kinematics_solver</depend>
   <depend>cpp_filters</depend>
 
   <!-- The export tag contains other, unspecified, tags -->

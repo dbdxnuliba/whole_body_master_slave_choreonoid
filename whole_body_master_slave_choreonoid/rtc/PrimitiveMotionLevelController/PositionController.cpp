@@ -115,6 +115,7 @@ namespace PrimitiveMotionLevel {
   void PositionController::reset() {
     this->positionTaskMap_.clear();
     this->fullbodyIKSolver_ = FullbodyIKSolver();
+    this->prioritizedIKSolver_ = PrioritizedIKSolver();
   }
 
   void PositionController::getPrimitiveCommand(const std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap, std::map<std::string, std::shared_ptr<PositionController::PositionTask> >& positionTaskMap) {
@@ -178,7 +179,15 @@ namespace PrimitiveMotionLevel {
     }
 
     // solve ik
-    this->fullbodyIKSolver_.solveFullbodyIK(robot_com, robot_ref, this->positionTaskMap_);
+    switch(this->solve_mode_){
+    case MODE_FULLBODY:
+      this->fullbodyIKSolver_.solveFullbodyIK(robot_com, robot_ref, this->positionTaskMap_);
+      break;
+    case MODE_PRIORITIZED:
+    default:
+      this->prioritizedIKSolver_.solvePrioritizedIK(robot_com, robot_ref, this->positionTaskMap_);
+      break;
+    }
   }
 
 
@@ -210,6 +219,44 @@ namespace PrimitiveMotionLevel {
                                  1e-6,
                                  0//debug
                                  );
+
+  }
+
+  void PositionController::PrioritizedIKSolver::solvePrioritizedIK(cnoid::BodyPtr& robot_com,
+                                                                   const cnoid::BodyPtr& robot_ref,
+                                                                   const std::map<std::string, std::shared_ptr<PositionTask> >& positionTaskMap){
+    std::vector<std::shared_ptr<IK::IKConstraint> > supportEEFConstraint;
+    std::vector<std::shared_ptr<IK::IKConstraint> > COMConstraint;
+    std::vector<std::shared_ptr<IK::IKConstraint> > interactEEFConstraint;
+
+    // primitive motion levelのIKConstraintを取得
+    for(std::map<std::string, std::shared_ptr<PositionController::PositionTask> >::const_iterator it = positionTaskMap.begin(); it != positionTaskMap.end(); it++) {
+      it->second->getIKConstraintsforSupportEEF(supportEEFConstraint, robot_com);
+      it->second->getIKConstraintsforCOM(COMConstraint, robot_com);
+      it->second->getIKConstraintsforInteractEEF(interactEEFConstraint, robot_com);
+    }
+
+    // command levelのIKConstraintを取得
+    std::vector<std::shared_ptr<IK::IKConstraint> > commandLevelConstraint;
+    PositionController::getCommandLevelIKConstraints(robot_ref, this->jointAngleConstraint_, this->rootLinkConstraint_, commandLevelConstraint, robot_com);
+
+    std::vector<std::vector<std::shared_ptr<IK::IKConstraint> > > ikConstraint{supportEEFConstraint,COMConstraint,interactEEFConstraint,commandLevelConstraint};
+
+    for(int i=0;i<ikConstraint.size();i++) for(size_t j=0;j<ikConstraint[i].size();j++) ikConstraint[i][j]->debuglevel() = 0;
+
+    std::vector<cnoid::LinkPtr> joints;
+    if(robot_com->rootLink()->jointType() != cnoid::Link::FIXED_JOINT) joints.push_back(robot_com->rootLink());
+    for(size_t i=0;i<robot_com->numJoints();i++){
+      joints.push_back(robot_com->joint(i));
+    }
+
+    prioritized_inverse_kinematics_solver::solveIKLoop(joints,
+                                                       ikConstraint,
+                                                       this->prevTasks_,
+                                                       1,//loop
+                                                       1e-6,
+                                                       0//debug
+                                                       );
 
   }
 
