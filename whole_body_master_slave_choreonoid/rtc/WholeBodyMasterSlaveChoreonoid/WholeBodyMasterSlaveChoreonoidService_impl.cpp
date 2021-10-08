@@ -16,12 +16,12 @@ CORBA::Boolean WholeBodyMasterSlaveChoreonoidService_impl::stopWholeBodyMasterSl
     return m_wholebodymasterslavechoreonoid->stopWholeBodyMasterSlave();
 };
 
-void WholeBodyMasterSlaveChoreonoidService_impl::setParams(const WholeBodyMasterSlaveChoreonoidIdl::WholeBodyMasterSlaveChoreonoidService::WholeBodyMasterSlaveChoreonoidParam& i_param)
+void WholeBodyMasterSlaveChoreonoidService_impl::setParams(const whole_body_master_slave_choreonoid::WholeBodyMasterSlaveChoreonoidService::WholeBodyMasterSlaveChoreonoidParam& i_param)
 {
   m_wholebodymasterslavechoreonoid->setParams(i_param);
 };
 
-void WholeBodyMasterSlaveChoreonoidService_impl::getParams(WholeBodyMasterSlaveChoreonoidIdl::WholeBodyMasterSlaveChoreonoidService::WholeBodyMasterSlaveChoreonoidParam_out i_param)
+void WholeBodyMasterSlaveChoreonoidService_impl::getParams(whole_body_master_slave_choreonoid::WholeBodyMasterSlaveChoreonoidService::WholeBodyMasterSlaveChoreonoidParam_out i_param)
 {
   i_param = new WholeBodyMasterSlaveChoreonoid::WholeBodyMasterSlaveChoreonoidService::WholeBodyMasterSlaveChoreonoidParam();
   m_wholebodymasterslavechoreonoid->getParam(*i_param);

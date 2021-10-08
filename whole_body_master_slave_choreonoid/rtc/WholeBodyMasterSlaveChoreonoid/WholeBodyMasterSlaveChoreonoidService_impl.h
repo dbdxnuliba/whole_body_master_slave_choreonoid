@@ -7,14 +7,14 @@
 class WholeBodyMasterSlaveChoreonoid;
 
 class WholeBodyMasterSlaveChoreonoidService_impl
-  : public virtual POA_WholeBodyMasterSlaveChoreonoidIdl::WholeBodyMasterSlaveChoreonoidService,
+  : public virtual POA_whole_body_master_slave_choreonoid::WholeBodyMasterSlaveChoreonoidService,
     public virtual PortableServer::RefCountServantBase
 {
 public:
   CORBA::Boolean startWholeBodyMasterSlave();
   CORBA::Boolean stopWholeBodyMasterSlave();
-  void setParams(const WholeBodyMasterSlaveChoreonoidIdl::WholeBodyMasterSlaveChoreonoidService::WholeBodyMasterSlaveChoreonoidParam& i_param);
-  void getParams(WholeBodyMasterSlaveChoreonoidIdl::WholeBodyMasterSlaveChoreonoidService::WholeBodyMasterSlaveChoreonoidParam_out i_param);
+  void setParams(const whole_body_master_slave_choreonoid::WholeBodyMasterSlaveChoreonoidService::WholeBodyMasterSlaveChoreonoidParam& i_param);
+  void getParams(whole_body_master_slave_choreonoid::WholeBodyMasterSlaveChoreonoidService::WholeBodyMasterSlaveChoreonoidParam_out i_param);
   //
   void wholebodymasterslavechoreonoid(WholeBodyMasterSlaveChoreonoid *i_wholebodymasterslavechoreonoid);
 private:

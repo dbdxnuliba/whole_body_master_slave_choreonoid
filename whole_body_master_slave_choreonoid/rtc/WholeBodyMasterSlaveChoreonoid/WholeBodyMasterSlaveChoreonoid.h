@@ -39,8 +39,8 @@ public:
   bool stopWholeBodyMasterSlave();
   bool pauseWholeBodyMasterSlave();
   bool resumeWholeBodyMasterSlave();
-  bool setParams(const WholeBodyMasterSlaveChoreonoidIdl::WholeBodyMasterSlaveChoreonoidService::WholeBodyMasterSlaveChoreonoidParam& i_param);
-  bool getParams(WholeBodyMasterSlaveChoreonoidIdl::WholeBodyMasterSlaveChoreonoidService::WholeBodyMasterSlaveChoreonoidParam& i_param);
+  bool setParams(const whole_body_master_slave_choreonoid::WholeBodyMasterSlaveChoreonoidService::WholeBodyMasterSlaveChoreonoidParam& i_param);
+  bool getParams(whole_body_master_slave_choreonoid::WholeBodyMasterSlaveChoreonoidService::WholeBodyMasterSlaveChoreonoidParam& i_param);
 
   class Ports {
   public:
@@ -52,8 +52,8 @@ public:
     RTC::InPort<RTC::TimedPoint3D> m_basePosRefIn_;
     RTC::TimedOrientation3D m_baseRpyRef_;
     RTC::InPort<RTC::TimedOrientation3D> m_baseRpyRefIn_;
-    WholeBodyMasterSlaveChoreonoidIdl::TimedEndEffectorStateSeq m_eeStateRef_;
-    RTC::InPort <WholeBodyMasterSlaveChoreonoidIdl::TimedEndEffectorStateSeq> m_eeStateRefIn_;
+    whole_body_master_slave_choreonoid::TimedEndEffectorStateSeq m_eeStateRef_;
+    RTC::InPort <whole_body_master_slave_choreonoid::TimedEndEffectorStateSeq> m_eeStateRefIn_;
 
     RTC::TimedDoubleSeq m_qAct_;
     RTC::InPort<RTC::TimedDoubleSeq> m_qActIn_;
@@ -69,8 +69,8 @@ public:
     RTC::TimedOrientation3D m_baseRpyCom_;
     RTC::OutPort<RTC::TimedOrientation3D> m_baseRpyComOut_;
 
-    WholeBodyMasterSlaveChoreonoidIdl::TimedEndEffectorStateSeq m_eeStateAct_;
-    RTC::OutPort<WholeBodyMasterSlaveChoreonoidIdl::TimedEndEffectorStateSeq> m_eeStateActOut_;
+    whole_body_master_slave_choreonoid::TimedEndEffectorStateSeq m_eeStateAct_;
+    RTC::OutPort<whole_body_master_slave_choreonoid::TimedEndEffectorStateSeq> m_eeStateActOut_;
 
     RTC::Time m_delayCheckPacket_;
     RTC::InPort<RTC::Time> m_delayCheckPacketInboundIn_;

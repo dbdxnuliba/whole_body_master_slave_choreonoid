@@ -4,7 +4,7 @@
  */
 #include "EndEffectorState.idl"
 #include "ExtendedDataTypes.idl" // openrtm
-module WholeBodyMasterSlaveChoreonoidIdl
+module whole_body_master_slave_choreonoid
 {
   interface WholeBodyMasterSlaveChoreonoidService
   {

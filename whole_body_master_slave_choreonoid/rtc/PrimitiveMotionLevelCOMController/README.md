@@ -4,7 +4,7 @@
 - `qRef` (RTC::TimedDoubleSeq) [REQUIRED]
 - `basePosRef` (RTC::TimedPoint3D) [REQUIRED]
 - `baseRpyRef` (RTC::TimedOrientation3D) [REQUIRED]
-- `primitiveCommandRef` (WholeBodyMasterSlaveChoreonoidIdl::TimedPrimitiveStateSeq) [REQUIRED]
+- `primitiveCommandRef` (whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq) [REQUIRED]
 - `qAct` (RTC::TimedDoubleSeq) [REQUIRED]
 - `imuAct` (RTC::TimedOrientation3D) [REQUIRED]
 
@@ -14,4 +14,4 @@
 - `baseRpyCom` (RTC::TimedOrientation3D)
 
 ## ServiceServer
-- `service0` (WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelControllerService)
+- `service0` (whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService)

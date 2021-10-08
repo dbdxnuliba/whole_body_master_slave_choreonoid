@@ -1,3 +1,3 @@
 src_gen/*
-msg/WholeBodyMasterSlaveChoreonoid*
-srv/WholeBodyMasterSlaveChoreonoid*
+msg/whole_body_master_slave_choreonoid*
+srv/whole_body_master_slave_choreonoid*

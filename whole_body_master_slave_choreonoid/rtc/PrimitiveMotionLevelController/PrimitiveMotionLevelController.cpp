@@ -104,7 +104,7 @@ namespace PrimitiveMotionLevelControllerImpl {
     }
     // 各指令値の反映
     for(size_t i=0;i<port.m_primitiveCommandRef_.data.length();i++){
-      const WholeBodyMasterSlaveChoreonoidIdl::PrimitiveState& idl = port.m_primitiveCommandRef_.data[i];
+      const whole_body_master_slave_choreonoid::PrimitiveStateIdl& idl = port.m_primitiveCommandRef_.data[i];
       std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> state = primitiveCommandMap[std::string(idl.name)];
       state->updateFromIdl(idl);
       state->updateTargetForOneStep(dt);
@@ -269,13 +269,13 @@ bool PrimitiveMotionLevelController::stopControl(){
   }
 }
 
-bool PrimitiveMotionLevelController::setParams(const WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param){
+bool PrimitiveMotionLevelController::setParams(const whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param){
   std::cerr << "[" << m_profile.instance_name << "] "<< "setParams" << std::endl;
   return true;
 }
 
 
-bool PrimitiveMotionLevelController::getParams(WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param){
+bool PrimitiveMotionLevelController::getParams(whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param){
   std::cerr << "[" << m_profile.instance_name << "] "<< "getParams" << std::endl;
   return true;
 }

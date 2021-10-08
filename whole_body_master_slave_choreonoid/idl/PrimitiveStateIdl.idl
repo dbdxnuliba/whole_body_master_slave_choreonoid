@@ -1,10 +1,10 @@
 #include "ExtendedDataTypes.idl" // openrtm
 
-module WholeBodyMasterSlaveChoreonoidIdl
+module whole_body_master_slave_choreonoid
 {
   typedef double DblSequence6[6];
 
-  struct PrimitiveState
+  struct PrimitiveStateIdl
   {
     string name;
     string parentLinkName;
@@ -28,9 +28,9 @@ module WholeBodyMasterSlaveChoreonoidIdl
     boolean supportCOM;
   };
 
-  struct TimedPrimitiveStateSeq
+  struct TimedPrimitiveStateIdlSeq
   {
     RTC::Time tm;
-    sequence<PrimitiveState> data;
+    sequence<PrimitiveStateIdl> data;
   };
 };

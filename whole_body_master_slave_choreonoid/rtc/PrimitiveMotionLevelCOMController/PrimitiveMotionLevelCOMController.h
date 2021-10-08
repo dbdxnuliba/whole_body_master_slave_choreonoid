@@ -21,7 +21,7 @@
 #include <cpp_filters/TwoPointInterpolator.h>
 #include <cpp_filters/IIRFilter.h>
 
-#include <whole_body_master_slave_choreonoid/idl/PrimitiveState.hh>
+#include <whole_body_master_slave_choreonoid/idl/PrimitiveStateIdl.hh>
 #include "PrimitiveMotionLevelCOMControllerService_impl.h"
 #include "PrimitiveCommand.h"
 #include "PositionController.h"
@@ -52,8 +52,8 @@ public:
     RTC::InPort<RTC::TimedPoint3D> m_basePosRefIn_;
     RTC::TimedOrientation3D m_baseRpyRef_;
     RTC::InPort<RTC::TimedOrientation3D> m_baseRpyRefIn_;
-    WholeBodyMasterSlaveChoreonoidIdl::TimedPrimitiveStateSeq m_primitiveCommandRef_;
-    RTC::InPort <WholeBodyMasterSlaveChoreonoidIdl::TimedPrimitiveStateSeq> m_primitiveCommandRefIn_;
+    whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq m_primitiveCommandRef_;
+    RTC::InPort <whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq> m_primitiveCommandRefIn_;
 
     RTC::TimedDoubleSeq m_qAct_;
     RTC::InPort<RTC::TimedDoubleSeq> m_qActIn_;
@@ -110,8 +110,8 @@ public:
   virtual RTC::ReturnCode_t onExecute(RTC::UniqueId ec_id);
   bool startControl();
   bool stopControl();
-  bool setParams(const WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelCOMControllerService::PrimitiveMotionLevelCOMControllerParam& i_param);
-  bool getParams(WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelCOMControllerService::PrimitiveMotionLevelCOMControllerParam& i_param);
+  bool setParams(const whole_body_master_slave_choreonoid::PrimitiveMotionLevelCOMControllerService::PrimitiveMotionLevelCOMControllerParam& i_param);
+  bool getParams(whole_body_master_slave_choreonoid::PrimitiveMotionLevelCOMControllerService::PrimitiveMotionLevelCOMControllerParam& i_param);
 
 protected:
 

@@ -2,9 +2,9 @@
  * @file PrimitiveMotionLevelCOMControllerService.idl
  * @brief Services for the PrimitiveMotionLevelCOMController interface
  */
-#include "PrimitiveState.idl"
+#include "PrimitiveStateIdl.idl"
 #include "ExtendedDataTypes.idl" // openrtm
-module WholeBodyMasterSlaveChoreonoidIdl
+module whole_body_master_slave_choreonoid
 {
   interface PrimitiveMotionLevelCOMControllerService
   {

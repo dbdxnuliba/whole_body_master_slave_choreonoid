@@ -24,14 +24,14 @@ CORBA::Boolean PrimitiveMotionLevelCOMControllerService_impl::stopControl()
   return comp_->stopControl();
 };
 
-void PrimitiveMotionLevelCOMControllerService_impl::setParams(const WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelCOMControllerService::PrimitiveMotionLevelCOMControllerParam& i_param)
+void PrimitiveMotionLevelCOMControllerService_impl::setParams(const whole_body_master_slave_choreonoid::PrimitiveMotionLevelCOMControllerService::PrimitiveMotionLevelCOMControllerParam& i_param)
 {
   comp_->setParams(i_param);
 };
 
-void PrimitiveMotionLevelCOMControllerService_impl::getParams(WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelCOMControllerService::PrimitiveMotionLevelCOMControllerParam_out i_param)
+void PrimitiveMotionLevelCOMControllerService_impl::getParams(whole_body_master_slave_choreonoid::PrimitiveMotionLevelCOMControllerService::PrimitiveMotionLevelCOMControllerParam_out i_param)
 {
-  i_param = new WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelCOMControllerService::PrimitiveMotionLevelCOMControllerParam();
+  i_param = new whole_body_master_slave_choreonoid::PrimitiveMotionLevelCOMControllerService::PrimitiveMotionLevelCOMControllerParam();
   comp_->getParams(*i_param);
 };
 

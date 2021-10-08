@@ -25,7 +25,7 @@ namespace PrimitiveMotionLevel {
   {
   }
 
-  void PrimitiveCommand::updateFromIdl(const WholeBodyMasterSlaveChoreonoidIdl::PrimitiveState& idl) {
+  void PrimitiveCommand::updateFromIdl(const whole_body_master_slave_choreonoid::PrimitiveStateIdl& idl) {
     this->parentLinkName_ = idl.parentLinkName;
     this->localPose_.translation()[0] = idl.localPose.position.x;
     this->localPose_.translation()[1] = idl.localPose.position.y;

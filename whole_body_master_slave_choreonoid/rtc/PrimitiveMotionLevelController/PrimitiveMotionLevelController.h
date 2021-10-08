@@ -21,7 +21,7 @@
 #include <cpp_filters/TwoPointInterpolator.h>
 #include <cpp_filters/IIRFilter.h>
 
-#include <whole_body_master_slave_choreonoid/idl/PrimitiveState.hh>
+#include <whole_body_master_slave_choreonoid/idl/PrimitiveStateIdl.hh>
 #include "PrimitiveMotionLevelControllerService_impl.h"
 #include "PrimitiveCommand.h"
 #include "PositionController.h"
@@ -51,8 +51,8 @@ public:
     RTC::InPort<RTC::TimedPoint3D> m_basePosRefIn_;
     RTC::TimedOrientation3D m_baseRpyRef_;
     RTC::InPort<RTC::TimedOrientation3D> m_baseRpyRefIn_;
-    WholeBodyMasterSlaveChoreonoidIdl::TimedPrimitiveStateSeq m_primitiveCommandRef_;
-    RTC::InPort <WholeBodyMasterSlaveChoreonoidIdl::TimedPrimitiveStateSeq> m_primitiveCommandRefIn_;
+    whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq m_primitiveCommandRef_;
+    RTC::InPort <whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq> m_primitiveCommandRefIn_;
 
     RTC::TimedDoubleSeq m_qCom_;
     RTC::OutPort<RTC::TimedDoubleSeq> m_qComOut_;
@@ -62,8 +62,8 @@ public:
     RTC::OutPort<RTC::TimedOrientation3D> m_baseRpyComOut_;
     RTC::TimedDoubleSeq m_baseTformCom_; // for HrpsysSeqStateROSBridge
     RTC::OutPort<RTC::TimedDoubleSeq> m_baseTformComOut_; // for HrpsysSeqStateROSBridge
-    WholeBodyMasterSlaveChoreonoidIdl::TimedPrimitiveStateSeq m_primitiveCommandCom_;
-    RTC::OutPort <WholeBodyMasterSlaveChoreonoidIdl::TimedPrimitiveStateSeq> m_primitiveCommandComOut_;
+    whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq m_primitiveCommandCom_;
+    RTC::OutPort <whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq> m_primitiveCommandComOut_;
 
     PrimitiveMotionLevelControllerService_impl m_service0_;
     RTC::CorbaPort m_PrimitiveMotionLevelControllerServicePort_;
@@ -108,8 +108,8 @@ public:
   virtual RTC::ReturnCode_t onExecute(RTC::UniqueId ec_id);
   bool startControl();
   bool stopControl();
-  bool setParams(const WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param);
-  bool getParams(WholeBodyMasterSlaveChoreonoidIdl::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param);
+  bool setParams(const whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param);
+  bool getParams(whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param);
 
 protected:
 
