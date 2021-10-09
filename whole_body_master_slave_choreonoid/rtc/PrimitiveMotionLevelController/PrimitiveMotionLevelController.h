@@ -20,6 +20,7 @@
 
 #include <cpp_filters/TwoPointInterpolator.h>
 #include <cpp_filters/IIRFilter.h>
+#include <joint_limit_table/JointLimitTable.h>
 
 #include <whole_body_master_slave_choreonoid/idl/PrimitiveStateIdl.hh>
 #include "PrimitiveMotionLevelControllerService_impl.h"
@@ -115,15 +116,16 @@ protected:
 
   unsigned int m_debugLevel_;
   unsigned int loop_;
-  double m_dt_;
 
   Ports ports_;
   ControlMode mode_;
+  std::shared_ptr<cpp_filters::TwoPointInterpolator<double> > outputRatioInterpolator_;
 
   cnoid::BodyPtr m_robot_ref_; // reference (q, basepos and baserpy only)
   cnoid::BodyPtr m_robot_com_; // command
 
-  std::shared_ptr<cpp_filters::TwoPointInterpolator<double> > outputRatioInterpolator_;
+  // 0. robotの設定
+  std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > > jointLimitTablesMap_;
 
   // 1. 受け取ったprimitive motion level 指令
   std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> > primitiveCommandMap_;
@@ -131,6 +133,14 @@ protected:
   // 2. primitiveCommandMap_を受け取り、m_robot_comを計算する
   PrimitiveMotionLevel::PositionController positionController_;
 
+  // static functions
+  static void readPorts(const std::string& instance_name, PrimitiveMotionLevelController::Ports& port);
+  static void calcReferenceRobot(const std::string& instance_name, const PrimitiveMotionLevelController::Ports& port, cnoid::BodyPtr& robot);
+  static void getPrimitiveCommand(const std::string& instance_name, const PrimitiveMotionLevelController::Ports& port, double dt, std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap);
+  static void processModeTransition(const std::string& instance_name, PrimitiveMotionLevelController::ControlMode& mode, std::shared_ptr<cpp_filters::TwoPointInterpolator<double> >& outputRatioInterpolator, const double dt);
+  static void preProcessForControl(const std::string& instance_name, PrimitiveMotionLevel::PositionController& positionController);
+  static void passThrough(const std::string& instance_name, const cnoid::BodyPtr& robot_ref, cnoid::BodyPtr& robot_com);
+  static void calcOutputPorts(const std::string& instance_name, PrimitiveMotionLevelController::Ports& port, double output_ratio, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_com, std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap);
 };
 
 

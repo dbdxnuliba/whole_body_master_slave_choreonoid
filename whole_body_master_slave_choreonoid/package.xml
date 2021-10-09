@@ -21,6 +21,7 @@
   <depend>fullbody_inverse_kinematics_solver</depend>
   <depend>prioritized_inverse_kinematics_solver</depend>
   <depend>cpp_filters</depend>
+  <depend>ik_constraint_joint_limit_table</depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

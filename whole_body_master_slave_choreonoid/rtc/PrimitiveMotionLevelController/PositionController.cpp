@@ -168,16 +168,26 @@ namespace PrimitiveMotionLevel {
     }
   }
 
-  void PositionController::getJointLimitIKConstraints(std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointLimitConstraint> >& jointLimitConstraintMap, std::vector<std::shared_ptr<IK::IKConstraint> >& jointLimitIKConstraints, const cnoid::BodyPtr& robot_com, double dt, double weight){
+  void PositionController::getJointLimitIKConstraints(std::unordered_map<cnoid::LinkPtr,std::shared_ptr<ik_constraint_joint_limit_table::JointLimitMinMaxTableConstraint> >& jointLimitConstraintMap,
+                                                      std::vector<std::shared_ptr<IK::IKConstraint> >& jointLimitIKConstraints,
+                                                      const cnoid::BodyPtr& robot_com,
+                                                      std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > >& jointLimitTablesMap,
+                                                      double dt,
+                                                      double weight){
     for(size_t i=0;i<robot_com->numJoints();i++){
       if(jointLimitConstraintMap.find(robot_com->joint(i))==jointLimitConstraintMap.end()){
-        std::shared_ptr<IK::JointLimitConstraint> jac = std::make_shared<IK::JointLimitConstraint>();
+        std::shared_ptr<ik_constraint_joint_limit_table::JointLimitMinMaxTableConstraint> jac = std::make_shared<ik_constraint_joint_limit_table::JointLimitMinMaxTableConstraint>();
         jac->joint() = robot_com->joint(i);
         jac->maxError() = 1.0*dt;
         jac->weight() = weight;
         jointLimitConstraintMap[robot_com->joint(i)] = jac;
       }
-      std::shared_ptr<IK::JointLimitConstraint>& jac = jointLimitConstraintMap[robot_com->joint(i)];
+      std::shared_ptr<ik_constraint_joint_limit_table::JointLimitMinMaxTableConstraint>& jac = jointLimitConstraintMap[robot_com->joint(i)];
+      if(jointLimitTablesMap.find(robot_com->joint(i)) != jointLimitTablesMap.end()){
+        jac->jointLimitTables() = jointLimitTablesMap[robot_com->joint(i)];
+      }else{
+        jac->jointLimitTables().clear();
+      }
       jointLimitIKConstraints.push_back(jac);
     }
   }
@@ -199,6 +209,7 @@ namespace PrimitiveMotionLevel {
 
   void PositionController::control(const std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap, // primitive motion level target
                                    const cnoid::BodyPtr& robot_ref, // command level target
+                                   std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > >& jointLimitTablesMap,
                                    cnoid::BodyPtr& robot_com, //output
                                    double dt
                                    ) {
@@ -217,7 +228,7 @@ namespace PrimitiveMotionLevel {
       break;
     case MODE_PRIORITIZED:
     default:
-      this->prioritizedIKSolver_.solvePrioritizedIK(robot_com, robot_ref, this->positionTaskMap_, dt);
+      this->prioritizedIKSolver_.solvePrioritizedIK(robot_com, robot_ref, this->positionTaskMap_, jointLimitTablesMap, dt);
       break;
     }
   }
@@ -257,7 +268,9 @@ namespace PrimitiveMotionLevel {
 
   void PositionController::PrioritizedIKSolver::solvePrioritizedIK(cnoid::BodyPtr& robot_com,
                                                                    const cnoid::BodyPtr& robot_ref,
-                                                                   const std::map<std::string, std::shared_ptr<PositionTask> >& positionTaskMap, double dt){
+                                                                   const std::map<std::string, std::shared_ptr<PositionTask> >& positionTaskMap,
+                                                                   std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > >& jointLimitTablesMap,
+                                                                   double dt){
 
     // 関節角速度上下限を取得
     std::vector<std::shared_ptr<IK::IKConstraint> > jointVelocityConstraint;
@@ -265,7 +278,7 @@ namespace PrimitiveMotionLevel {
 
     // 関節角度上下限を取得
     std::vector<std::shared_ptr<IK::IKConstraint> > jointLimitConstraint;
-    PositionController::getJointLimitIKConstraints(this->jointLimitConstraint_, jointLimitConstraint, robot_com, dt);
+    PositionController::getJointLimitIKConstraints(this->jointLimitConstraint_, jointLimitConstraint, robot_com, jointLimitTablesMap, dt);
 
     // primitive motion levelのIKConstraintを取得
     std::vector<std::shared_ptr<IK::IKConstraint> > supportEEFConstraint;

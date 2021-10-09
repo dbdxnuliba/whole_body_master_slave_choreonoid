@@ -8,4 +8,6 @@
 - git:
     local-name: ik_solvers
     uri: git@github.com:Naoki-Hiraoka/ik_solvers.git
-
+- git:
+    local-name: joint_limit_table
+    uri: https://github.com/Naoki-Hiraoka/joint_limit_table.git
