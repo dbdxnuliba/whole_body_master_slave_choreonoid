@@ -60,6 +60,12 @@ RTC::ReturnCode_t PrimitiveMotionLevelController::onInitialize(){
 
   this->outputRatioInterpolator_ = std::make_shared<cpp_filters::TwoPointInterpolator<double> >(0.0,0.0,0.0,cpp_filters::HOFFARBIB);
 
+  for(size_t i=0;i<this->m_robot_com_->numJoints();i++){
+    // 1.0だと安全.4.0は脚.10.0はlapid manipulation らしい
+    this->m_robot_com_->joint(i)->setJointVelocityRange(std::max(this->m_robot_ref_->joint(i)->dq_lower(), -1.0),
+                                                        std::min(this->m_robot_ref_->joint(i)->dq_upper(), 1.0));
+  }
+
   return RTC::RTC_OK;
 }
 

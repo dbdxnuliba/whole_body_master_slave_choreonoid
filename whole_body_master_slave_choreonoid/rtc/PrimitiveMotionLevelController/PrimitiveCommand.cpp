@@ -58,6 +58,7 @@ namespace PrimitiveMotionLevel {
     this->supportCOM_ = idl.supportCOM;
 
     this->isInitial_ = false;
+
   }
 
   void PrimitiveCommand::updateTargetForOneStep(double dt) {
@@ -70,6 +71,7 @@ namespace PrimitiveMotionLevel {
     this->targetOrientationInterpolator_.get(R, dt);
     this->targetPose_.linear() = R;
     this->targetWrenchInterpolator_.get(this->targetWrench_, dt);
+
   }
 
 };

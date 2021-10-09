@@ -8,6 +8,8 @@
 #include <ik_constraint/PositionConstraint.h>
 #include <ik_constraint/COMConstraint.h>
 #include <ik_constraint/JointAngleConstraint.h>
+#include <ik_constraint/JointLimitConstraint.h>
+#include <ik_constraint/JointVelocityConstraint.h>
 #include "PrimitiveCommand.h"
 
 namespace PrimitiveMotionLevel {
@@ -72,10 +74,13 @@ namespace PrimitiveMotionLevel {
     public:
       void solvePrioritizedIK(cnoid::BodyPtr& robot_com,
                               const cnoid::BodyPtr& robot_ref,
-                              const std::map<std::string, std::shared_ptr<PositionTask> >& positionTaskMap_);
+                              const std::map<std::string, std::shared_ptr<PositionTask> >& positionTaskMap_,
+                              double dt);
     protected:
       std::vector<std::shared_ptr<prioritized_qp::Task> > prevTasks_;
 
+      std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointVelocityConstraint> > jointVelocityConstraint_;
+      std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointLimitConstraint> > jointLimitConstraint_;
       std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointAngleConstraint> > jointAngleConstraint_;
       std::shared_ptr<IK::PositionConstraint> rootLinkConstraint_;
     };
@@ -89,7 +94,9 @@ namespace PrimitiveMotionLevel {
 
     // static functions
     static void getPrimitiveCommand(const std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap, std::map<std::string, std::shared_ptr<PositionController::PositionTask> >& positionTaskMap);
-    static void getCommandLevelIKConstraints(const cnoid::BodyPtr& robot_ref, std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointAngleConstraint> > jointAngleConstraint, std::shared_ptr<IK::PositionConstraint>& rootLinkConstraint, std::vector<std::shared_ptr<IK::IKConstraint> >& commandLevelIKConstraints, const cnoid::BodyPtr& robot_com, double weight = 1.0);
+    static void getCommandLevelIKConstraints(const cnoid::BodyPtr& robot_ref, std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointAngleConstraint> >& jointAngleConstraint, std::shared_ptr<IK::PositionConstraint>& rootLinkConstraint, std::vector<std::shared_ptr<IK::IKConstraint> >& commandLevelIKConstraints, const cnoid::BodyPtr& robot_com, double weight = 1.0);
+    static void getJointLimitIKConstraints(std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointLimitConstraint> >& jointLimitConstraintMap, std::vector<std::shared_ptr<IK::IKConstraint> >& jointLimitIKConstraints, const cnoid::BodyPtr& robot_com, double weight = 1.0);
+    static void getJointVelocityIKConstraints(std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointVelocityConstraint> >& jointVelocityConstraintMap, std::vector<std::shared_ptr<IK::IKConstraint> >& jointVelocityIKConstraints, const cnoid::BodyPtr& robot_com, double dt, double weight = 1.0);
   };
 }
 
