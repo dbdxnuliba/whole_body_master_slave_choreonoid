@@ -32,10 +32,11 @@ PrimitiveMotionLevelController::PrimitiveMotionLevelController(RTC::Manager* man
 RTC::ReturnCode_t PrimitiveMotionLevelController::onInitialize(){
   bindParameter("debugLevel", this->m_debugLevel_, "0");
 
-  addInPort("qRefin", this->ports_.m_qRefIn_);// from sh
-  addInPort("basePosRefin", this->ports_.m_basePosRefIn_);
-  addInPort("baseRpyRefin", this->ports_.m_baseRpyRefIn_);
-  addInPort("primitiveCommandRefin", this->ports_.m_primitiveCommandRefIn_);
+  addInPort("qRefIn", this->ports_.m_qRefIn_);// from sh
+  addInPort("basePosRefIn", this->ports_.m_basePosRefIn_);
+  addInPort("baseRpyRefIn", this->ports_.m_baseRpyRefIn_);
+  addInPort("primitiveCommandRefIn", this->ports_.m_primitiveCommandRefIn_);
+  addInPort("collisionComIn", this->ports_.m_collisionComIn_);
   addOutPort("qComOut", this->ports_.m_qComOut_);
   addOutPort("basePosComOut", this->ports_.m_basePosComOut_);
   addOutPort("baseRpyComOut", this->ports_.m_baseRpyComOut_);
@@ -84,6 +85,7 @@ void PrimitiveMotionLevelController::readPorts(const std::string& instance_name,
   if(port.m_basePosRefIn_.isNew()) port.m_basePosRefIn_.read();
   if(port.m_baseRpyRefIn_.isNew()) port.m_baseRpyRefIn_.read();
   if(port.m_primitiveCommandRefIn_.isNew()) port.m_primitiveCommandRefIn_.read();
+  if(port.m_collisionComIn_.isNew()) port.m_collisionComIn_.read();
 }
 
   // calc reference state (without ee. q, basepos and baserpy only)

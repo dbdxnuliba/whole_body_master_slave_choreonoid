@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   prioritized_inverse_kinematics_solver
   cpp_filters
   ik_constraint_joint_limit_table
+  collision_checker_rtc
   )
 find_package(choreonoid REQUIRED)
 find_package(OsqpEigen REQUIRED)
@@ -35,7 +36,8 @@ rtmbuild_add_library(PrimitiveMotionLevelController SHARED
 target_link_libraries(PrimitiveMotionLevelController
   ${catkin_LIBRARIES}
   ${CHOREONOID_BODY_LIBRARIES_ABS}
-  OsqpEigen::OsqpEigen)
+  OsqpEigen::OsqpEigen
+  )
 set_target_properties(PrimitiveMotionLevelController PROPERTIES PREFIX "")
 add_dependencies(PrimitiveMotionLevelController RTMBUILD_${PROJECT_NAME}_genrpc) # wait for rtmbuild_genidl
 
