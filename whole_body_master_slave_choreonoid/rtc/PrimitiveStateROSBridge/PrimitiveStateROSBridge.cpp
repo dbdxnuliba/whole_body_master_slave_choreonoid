@@ -66,6 +66,7 @@ RTC::ReturnCode_t PrimitiveStateROSBridge::onExecute(RTC::UniqueId ec_id){
     this->m_primitiveCommandRTMIn_.read();
 
     whole_body_master_slave_choreonoid::PrimitiveStateArray msg;
+    msg.header.stamp = ros::Time::now();
     for(int i=0;i<m_primitiveCommandRTM_.data.length();i++){
       whole_body_master_slave_choreonoid::PrimitiveState state;
       state.name = std::string(m_primitiveCommandRTM_.data[i].name);
@@ -115,8 +116,9 @@ RTC::ReturnCode_t PrimitiveStateROSBridge::onExecute(RTC::UniqueId ec_id){
 }
 
 void PrimitiveStateROSBridge::topicCallback(const whole_body_master_slave_choreonoid::PrimitiveStateArray::ConstPtr& msg) {
-  m_primitiveCommandROS_.tm.sec = msg->header.stamp.sec;
-  m_primitiveCommandROS_.tm.nsec = msg->header.stamp.nsec;
+  coil::TimeValue coiltm(coil::gettimeofday());
+  m_primitiveCommandROS_.tm.sec  = coiltm.sec();
+  m_primitiveCommandROS_.tm.nsec = coiltm.usec() * 1000;
   m_primitiveCommandROS_.data.length(msg->primitive_state.size());
   for(int i=0;i<msg->primitive_state.size();i++){
     m_primitiveCommandROS_.data[i].name = msg->primitive_state[i].name.c_str();
