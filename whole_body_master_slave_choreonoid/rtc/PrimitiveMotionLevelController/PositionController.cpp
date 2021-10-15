@@ -93,8 +93,6 @@ namespace PrimitiveMotionLevel {
     if(primitiveCommand->M().tail<3>().norm() == 0.0 &&
        primitiveCommand->D().tail<3>().norm() == 0.0 &&
        primitiveCommand->K().tail<3>().norm() == 0.0) positionConstraint->weight().tail<3>() << 0.0,0.0,0.0;
-    std::cerr << "offset" << std::endl << offset.translation().transpose() << std::endl << offset.linear() << std::endl;
-    std::cerr << "target" << std::endl << primitiveCommand->targetPose().translation().transpose() << std::endl << primitiveCommand->targetPose().linear() << std::endl;
   }
 
   void PositionController::PositionTask::getIKConstraintsforCOM(std::vector<std::shared_ptr<IK::IKConstraint> >& ikConstraints, const cnoid::BodyPtr& robot_com, double dt, double weight) {
@@ -209,7 +207,25 @@ namespace PrimitiveMotionLevel {
     }
   }
 
+  void PositionController::getCollisionIKConstraints(std::vector<std::shared_ptr<IK::ClientCollisionConstraint> >& collisionConstraints, std::vector<std::shared_ptr<IK::IKConstraint> >& collisionIKConstraints, const cnoid::BodyPtr& robot_com, const std::vector<std::shared_ptr<PrimitiveMotionLevel::Collision> >& collisions, double dt, double weight){
+    collisionConstraints.resize(collisions.size());
+    for(size_t i=0;i<collisionConstraints.size();i++){
+      if(!collisionConstraints[i]) collisionConstraints[i] = std::make_shared<IK::ClientCollisionConstraint>();
+      collisionConstraints[i]->A_link() = robot_com->link(collisions[i]->link1());
+      collisionConstraints[i]->B_link() = robot_com->link(collisions[i]->link2());
+      collisionConstraints[i]->tolerance() = 0.01; // 1cm
+      collisionConstraints[i]->maxError() = 1.0*dt;
+      collisionConstraints[i]->weight() = weight;
+      collisionConstraints[i]->A_localp() = collisions[i]->point1();
+      collisionConstraints[i]->B_localp() = collisions[i]->point2();
+      collisionConstraints[i]->direction() = collisions[i]->direction21();
+
+      collisionIKConstraints.push_back(collisionConstraints[i]);
+    }
+  }
+
   void PositionController::control(const std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap, // primitive motion level target
+                                   const std::vector<std::shared_ptr<PrimitiveMotionLevel::Collision> >& collisions, // current self collision state
                                    const cnoid::BodyPtr& robot_ref, // command level target
                                    std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > >& jointLimitTablesMap,
                                    cnoid::BodyPtr& robot_com, //output
@@ -231,7 +247,7 @@ namespace PrimitiveMotionLevel {
       break;
     case MODE_PRIORITIZED:
     default:
-      this->prioritizedIKSolver_.solvePrioritizedIK(robot_com, robot_ref, this->positionTaskMap_, jointLimitTablesMap, dt, debugLevel);
+      this->prioritizedIKSolver_.solvePrioritizedIK(robot_com, robot_ref, this->positionTaskMap_, jointLimitTablesMap, collisions, dt, debugLevel);
       break;
     }
   }
@@ -274,6 +290,7 @@ namespace PrimitiveMotionLevel {
                                                                    const cnoid::BodyPtr& robot_ref,
                                                                    const std::map<std::string, std::shared_ptr<PositionTask> >& positionTaskMap,
                                                                    std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > >& jointLimitTablesMap,
+                                                                   const std::vector<std::shared_ptr<PrimitiveMotionLevel::Collision> >& collisions, // current self collision state
                                                                    double dt,
                                                                    int debugLevel){
 
@@ -284,6 +301,10 @@ namespace PrimitiveMotionLevel {
     // 関節角度上下限を取得
     std::vector<std::shared_ptr<IK::IKConstraint> > jointLimitConstraint;
     PositionController::getJointLimitIKConstraints(this->jointLimitConstraint_, jointLimitConstraint, robot_com, jointLimitTablesMap, dt);
+
+    // 関節角度上下限を取得
+    std::vector<std::shared_ptr<IK::IKConstraint> > collisionConstraint;
+    PositionController::getCollisionIKConstraints(this->collisionConstraint_, collisionConstraint, robot_com, collisions, dt, 3.0); //weightはweを増やしている
 
     // primitive motion levelのIKConstraintを取得
     std::vector<std::shared_ptr<IK::IKConstraint> > supportEEFConstraint;
@@ -302,6 +323,7 @@ namespace PrimitiveMotionLevel {
     std::vector<std::vector<std::shared_ptr<IK::IKConstraint> > > ikConstraint;
     ikConstraint.push_back(jointVelocityConstraint);
     ikConstraint.push_back(jointLimitConstraint);
+    ikConstraint.push_back(collisionConstraint);
     ikConstraint.push_back(supportEEFConstraint);
     ikConstraint.push_back(COMConstraint);
     ikConstraint.push_back(interactEEFConstraint);

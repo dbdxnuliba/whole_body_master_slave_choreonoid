@@ -32,7 +32,9 @@ rtmbuild_add_library(PrimitiveMotionLevelController SHARED
   PrimitiveMotionLevelController.cpp
   PrimitiveMotionLevelControllerService_impl.cpp
   PrimitiveCommand.cpp
-  PositionController.cpp)
+  Collision.cpp
+  PositionController.cpp
+  )
 target_link_libraries(PrimitiveMotionLevelController
   ${catkin_LIBRARIES}
   ${CHOREONOID_BODY_LIBRARIES_ABS}

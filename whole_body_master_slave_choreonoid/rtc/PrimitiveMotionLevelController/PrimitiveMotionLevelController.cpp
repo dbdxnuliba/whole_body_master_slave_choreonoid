@@ -136,6 +136,18 @@ void PrimitiveMotionLevelController::getPrimitiveCommand(const std::string& inst
   }
 }
 
+void PrimitiveMotionLevelController::getCollision(const std::string& instance_name, const PrimitiveMotionLevelController::Ports& port, std::vector<std::shared_ptr<PrimitiveMotionLevel::Collision> >& collisions) {
+  collisions.resize(port.m_collisionCom_.data.length());
+  // 各collisionの反映
+  for(size_t i=0;i<port.m_collisionCom_.data.length();i++){
+    const collision_checker_msgs::CollisionIdl& idl = port.m_collisionCom_.data[i];
+    if(!collisions[i]) collisions[i] = std::make_shared<PrimitiveMotionLevel::Collision>();
+    std::shared_ptr<PrimitiveMotionLevel::Collision> state = collisions[i];
+    state->updateFromIdl(idl);
+  }
+}
+
+
 void PrimitiveMotionLevelController::processModeTransition(const std::string& instance_name, PrimitiveMotionLevelController::ControlMode& mode, std::shared_ptr<cpp_filters::TwoPointInterpolator<double> >& outputRatioInterpolator, const double dt){
   double tmp;
   switch(mode.now()){
@@ -245,6 +257,9 @@ RTC::ReturnCode_t PrimitiveMotionLevelController::onExecute(RTC::UniqueId ec_id)
   // get primitive motion level command
   PrimitiveMotionLevelController::getPrimitiveCommand(instance_name, this->ports_, dt, this->primitiveCommandMap_);
 
+  // get self collision states for collision avoidance
+  PrimitiveMotionLevelController::getCollision(instance_name, this->ports_, this->collisions_);
+
   // mode遷移を実行
   PrimitiveMotionLevelController::processModeTransition(instance_name, this->mode_, this->outputRatioInterpolator_, dt);
 
@@ -253,7 +268,7 @@ RTC::ReturnCode_t PrimitiveMotionLevelController::onExecute(RTC::UniqueId ec_id)
       PrimitiveMotionLevelController::preProcessForControl(instance_name, this->positionController_);
     }
 
-    this->positionController_.control(this->primitiveCommandMap_, this->m_robot_ref_, this->jointLimitTablesMap_, this->m_robot_com_, dt, this->debugLevel_);
+    this->positionController_.control(this->primitiveCommandMap_, this->collisions_, this->m_robot_ref_, this->jointLimitTablesMap_, this->m_robot_com_, dt, this->debugLevel_);
 
   } else {
     // robot_refがそのままrobot_comになる

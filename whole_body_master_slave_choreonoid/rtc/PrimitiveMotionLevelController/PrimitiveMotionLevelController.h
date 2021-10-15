@@ -27,6 +27,7 @@
 #include "PrimitiveMotionLevelControllerService_impl.h"
 #include "PrimitiveCommand.h"
 #include "PositionController.h"
+#include "Collision.h"
 
 class PrimitiveMotionLevelController : public RTC::DataFlowComponentBase{
 public:
@@ -132,8 +133,9 @@ protected:
   // 0. robotの設定
   std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > > jointLimitTablesMap_;
 
-  // 1. 受け取ったprimitive motion level 指令
+  // 1. portから受け取ったprimitive motion level 指令など
   std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> > primitiveCommandMap_;
+  std::vector<std::shared_ptr<PrimitiveMotionLevel::Collision> > collisions_;
 
   // 2. primitiveCommandMap_を受け取り、m_robot_comを計算する
   PrimitiveMotionLevel::PositionController positionController_;
@@ -142,6 +144,7 @@ protected:
   static void readPorts(const std::string& instance_name, PrimitiveMotionLevelController::Ports& port);
   static void calcReferenceRobot(const std::string& instance_name, const PrimitiveMotionLevelController::Ports& port, cnoid::BodyPtr& robot);
   static void getPrimitiveCommand(const std::string& instance_name, const PrimitiveMotionLevelController::Ports& port, double dt, std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap);
+  static void getCollision(const std::string& instance_name, const PrimitiveMotionLevelController::Ports& port, std::vector<std::shared_ptr<PrimitiveMotionLevel::Collision> >& collisions);
   static void processModeTransition(const std::string& instance_name, PrimitiveMotionLevelController::ControlMode& mode, std::shared_ptr<cpp_filters::TwoPointInterpolator<double> >& outputRatioInterpolator, const double dt);
   static void preProcessForControl(const std::string& instance_name, PrimitiveMotionLevel::PositionController& positionController);
   static void passThrough(const std::string& instance_name, const cnoid::BodyPtr& robot_ref, cnoid::BodyPtr& robot_com);

@@ -10,8 +10,10 @@
 #include <ik_constraint/COMConstraint.h>
 #include <ik_constraint/JointAngleConstraint.h>
 #include <ik_constraint/JointVelocityConstraint.h>
+#include <ik_constraint/ClientCollisionConstraint.h>
 #include <ik_constraint_joint_limit_table/JointLimitMinMaxTableConstraint.h>
 #include "PrimitiveCommand.h"
+#include "Collision.h"
 
 namespace PrimitiveMotionLevel {
 
@@ -21,6 +23,7 @@ namespace PrimitiveMotionLevel {
 
     void reset();
     void control(const std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap, // primitive motion level target
+                 const std::vector<std::shared_ptr<PrimitiveMotionLevel::Collision> >& collisions, // current self collision state
                  const cnoid::BodyPtr& robot_ref, // command level target
                  std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > >& jointLimitTablesMap,
                  cnoid::BodyPtr& robot_com, //output
@@ -84,6 +87,7 @@ namespace PrimitiveMotionLevel {
                               const cnoid::BodyPtr& robot_ref,
                               const std::map<std::string, std::shared_ptr<PositionTask> >& positionTaskMap_,
                               std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > >& jointLimitTablesMap,
+                              const std::vector<std::shared_ptr<PrimitiveMotionLevel::Collision> >& collisions, // current self collision state
                               double dt,
                               int debugLevel);
     protected:
@@ -92,6 +96,7 @@ namespace PrimitiveMotionLevel {
       std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointVelocityConstraint> > jointVelocityConstraint_;
       std::unordered_map<cnoid::LinkPtr,std::shared_ptr<ik_constraint_joint_limit_table::JointLimitMinMaxTableConstraint> > jointLimitConstraint_;
       std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointAngleConstraint> > jointAngleConstraint_;
+      std::vector<std::shared_ptr<IK::ClientCollisionConstraint> > collisionConstraint_;
       std::shared_ptr<IK::PositionConstraint> rootLinkConstraint_;
     };
   protected:
@@ -106,6 +111,7 @@ namespace PrimitiveMotionLevel {
     static void getPrimitiveCommand(const std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap, std::map<std::string, std::shared_ptr<PositionController::PositionTask> >& positionTaskMap);
     static void getCommandLevelIKConstraints(const cnoid::BodyPtr& robot_ref, std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointAngleConstraint> >& jointAngleConstraint, std::shared_ptr<IK::PositionConstraint>& rootLinkConstraint, std::vector<std::shared_ptr<IK::IKConstraint> >& commandLevelIKConstraints, const cnoid::BodyPtr& robot_com, double dt, double weight = 1.0);
     static void getJointLimitIKConstraints(std::unordered_map<cnoid::LinkPtr,std::shared_ptr<ik_constraint_joint_limit_table::JointLimitMinMaxTableConstraint> >& jointLimitConstraintMap, std::vector<std::shared_ptr<IK::IKConstraint> >& jointLimitIKConstraints, const cnoid::BodyPtr& robot_com, std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > >& jointLimitTablesMap, double dt, double weight = 1.0);
+    static void getCollisionIKConstraints(std::vector<std::shared_ptr<IK::ClientCollisionConstraint> >& collisionConstraints, std::vector<std::shared_ptr<IK::IKConstraint> >& collisionIKConstraints, const cnoid::BodyPtr& robot_com, const std::vector<std::shared_ptr<PrimitiveMotionLevel::Collision> >& collisions, double dt, double weight = 1.0);
     static void getJointVelocityIKConstraints(std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointVelocityConstraint> >& jointVelocityConstraintMap, std::vector<std::shared_ptr<IK::IKConstraint> >& jointVelocityIKConstraints, const cnoid::BodyPtr& robot_com, double dt, double weight = 1.0);
   };
 }
