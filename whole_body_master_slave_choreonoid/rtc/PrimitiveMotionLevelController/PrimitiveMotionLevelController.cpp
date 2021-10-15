@@ -142,8 +142,7 @@ void PrimitiveMotionLevelController::getCollision(const std::string& instance_na
   for(size_t i=0;i<port.m_collisionCom_.data.length();i++){
     const collision_checker_msgs::CollisionIdl& idl = port.m_collisionCom_.data[i];
     if(!collisions[i]) collisions[i] = std::make_shared<PrimitiveMotionLevel::Collision>();
-    std::shared_ptr<PrimitiveMotionLevel::Collision> state = collisions[i];
-    state->updateFromIdl(idl);
+    collisions[i]->updateFromIdl(idl);
   }
 }
 

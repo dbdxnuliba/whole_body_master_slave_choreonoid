@@ -220,7 +220,10 @@ namespace PrimitiveMotionLevel {
       collisionConstraints[i]->B_localp() = collisions[i]->point2();
       collisionConstraints[i]->direction() = collisions[i]->direction21();
 
-      collisionIKConstraints.push_back(collisionConstraints[i]);
+      // 全自己干渉情報を与えると計算コストが膨大になるため、距離が近いもののみ与える
+      if(collisions[i]->distance() < 0.01 + 0.05){
+        collisionIKConstraints.push_back(collisionConstraints[i]);
+      }
     }
   }
 
@@ -299,12 +302,11 @@ namespace PrimitiveMotionLevel {
     PositionController::getJointVelocityIKConstraints(this->jointVelocityConstraint_, jointVelocityConstraint, robot_com, dt);
 
     // 関節角度上下限を取得
-    std::vector<std::shared_ptr<IK::IKConstraint> > jointLimitConstraint;
-    PositionController::getJointLimitIKConstraints(this->jointLimitConstraint_, jointLimitConstraint, robot_com, jointLimitTablesMap, dt);
+    std::vector<std::shared_ptr<IK::IKConstraint> > limitConstraint;
+    PositionController::getJointLimitIKConstraints(this->jointLimitConstraint_, limitConstraint, robot_com, jointLimitTablesMap, dt);
 
     // 関節角度上下限を取得
-    std::vector<std::shared_ptr<IK::IKConstraint> > collisionConstraint;
-    PositionController::getCollisionIKConstraints(this->collisionConstraint_, collisionConstraint, robot_com, collisions, dt, 3.0); //weightはweを増やしている
+    PositionController::getCollisionIKConstraints(this->collisionConstraint_, limitConstraint, robot_com, collisions, dt, 3.0); //weightはweを増やしている
 
     // primitive motion levelのIKConstraintを取得
     std::vector<std::shared_ptr<IK::IKConstraint> > supportEEFConstraint;
@@ -322,8 +324,7 @@ namespace PrimitiveMotionLevel {
 
     std::vector<std::vector<std::shared_ptr<IK::IKConstraint> > > ikConstraint;
     ikConstraint.push_back(jointVelocityConstraint);
-    ikConstraint.push_back(jointLimitConstraint);
-    ikConstraint.push_back(collisionConstraint);
+    ikConstraint.push_back(limitConstraint);
     ikConstraint.push_back(supportEEFConstraint);
     ikConstraint.push_back(COMConstraint);
     ikConstraint.push_back(interactEEFConstraint);
