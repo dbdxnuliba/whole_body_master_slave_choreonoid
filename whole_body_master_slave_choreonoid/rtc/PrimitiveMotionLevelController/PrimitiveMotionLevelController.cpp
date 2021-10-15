@@ -38,6 +38,7 @@ RTC::ReturnCode_t PrimitiveMotionLevelController::onInitialize(){
   addOutPort("qComOut", this->ports_.m_qComOut_);
   addOutPort("basePosComOut", this->ports_.m_basePosComOut_);
   addOutPort("baseRpyComOut", this->ports_.m_baseRpyComOut_);
+  addOutPort("basePoseComOut", this->ports_.m_basePoseComOut_);
   addOutPort("baseTformComOut", this->ports_.m_baseTformComOut_);
   addOutPort("primitiveCommandComOut", this->ports_.m_primitiveCommandComOut_);
   this->ports_.m_PrimitiveMotionLevelControllerServicePort_.registerProvider("service0", "PrimitiveMotionLevelControllerService", this->ports_.m_service0_);
@@ -215,6 +216,15 @@ void PrimitiveMotionLevelController::calcOutputPorts(const std::string& instance
   port.m_baseRpyCom_.data.y = outputBaseRpy[2];
   port.m_baseRpyCom_.tm = port.m_qRef_.tm;
   port.m_baseRpyComOut_.write();
+  // basePose
+  port.m_basePoseCom_.tm = port.m_qRef_.tm;
+  port.m_basePoseCom_.data.position.x = outputBasePos[0];
+  port.m_basePoseCom_.data.position.y = outputBasePos[1];
+  port.m_basePoseCom_.data.position.z = outputBasePos[2];
+  port.m_basePoseCom_.data.orientation.r = outputBaseRpy[0];
+  port.m_basePoseCom_.data.orientation.p = outputBaseRpy[1];
+  port.m_basePoseCom_.data.orientation.y = outputBaseRpy[2];
+  port.m_basePoseComOut_.write();
   // m_baseTform
   port.m_baseTformCom_.data.length(12);
   for(int i=0;i<3;i++) port.m_baseTformCom_.data[i] = outputBasePos[i];

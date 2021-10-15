@@ -17,8 +17,6 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   std_msgs
   geometry_msgs
-  hrpsys_ros_bridge
-  fullbody_inverse_kinematics_solver
   )
 
 add_message_files(

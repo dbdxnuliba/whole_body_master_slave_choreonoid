@@ -43,6 +43,7 @@ public:
       m_qComOut_("qComOut", m_qCom_),
       m_basePosComOut_("basePosComOut", m_basePosCom_),
       m_baseRpyComOut_("baseRpyComOut", m_baseRpyCom_),
+      m_basePoseComOut_("basePoseComOut", m_basePoseCom_),
       m_baseTformComOut_("baseTformComOut", m_baseTformCom_),
       m_primitiveCommandComOut_("primitiveCommandComOut", m_primitiveCommandCom_),
 
@@ -66,6 +67,8 @@ public:
     RTC::OutPort<RTC::TimedPoint3D> m_basePosComOut_;
     RTC::TimedOrientation3D m_baseRpyCom_;
     RTC::OutPort<RTC::TimedOrientation3D> m_baseRpyComOut_;
+    RTC::TimedPose3D m_basePoseCom_;
+    RTC::OutPort<RTC::TimedPose3D> m_basePoseComOut_;
     RTC::TimedDoubleSeq m_baseTformCom_; // for HrpsysSeqStateROSBridge
     RTC::OutPort<RTC::TimedDoubleSeq> m_baseTformComOut_; // for HrpsysSeqStateROSBridge
     whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq m_primitiveCommandCom_;
