@@ -22,7 +22,7 @@
 #include <cpp_filters/IIRFilter.h>
 #include <joint_limit_table/JointLimitTable.h>
 
-#include <collision_checker_rtc/idl/Collision.hh>
+#include <collision_checker_msgs/idl/Collision.hh>
 #include <whole_body_master_slave_choreonoid/idl/PrimitiveStateIdl.hh>
 #include "PrimitiveMotionLevelControllerService_impl.h"
 #include "PrimitiveCommand.h"
@@ -56,8 +56,8 @@ public:
     RTC::InPort<RTC::TimedOrientation3D> m_baseRpyRefIn_;
     whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq m_primitiveCommandRef_;
     RTC::InPort <whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq> m_primitiveCommandRefIn_;
-    collision_checker_rtc::TimedCollisionSeq m_collisionCom_;
-    RTC::InPort <collision_checker_rtc::TimedCollisionSeq> m_collisionComIn_;
+    collision_checker_msgs::TimedCollisionSeq m_collisionCom_;
+    RTC::InPort <collision_checker_msgs::TimedCollisionSeq> m_collisionComIn_;
 
     RTC::TimedDoubleSeq m_qCom_;
     RTC::OutPort<RTC::TimedDoubleSeq> m_qComOut_;

@@ -22,11 +22,6 @@
   <depend>prioritized_inverse_kinematics_solver</depend>
   <depend>cpp_filters</depend>
   <depend>ik_constraint_joint_limit_table</depend>
-  <depend>collision_checker_rtc</depend>
+  <depend>collision_checker_msgs</depend>
 
-  <!-- The export tag contains other, unspecified, tags -->
-  <export>
-    <!-- Other tools can request additional information be placed here -->
-
-  </export>
 </package>

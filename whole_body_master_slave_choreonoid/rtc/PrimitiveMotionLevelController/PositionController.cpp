@@ -93,6 +93,8 @@ namespace PrimitiveMotionLevel {
     if(primitiveCommand->M().tail<3>().norm() == 0.0 &&
        primitiveCommand->D().tail<3>().norm() == 0.0 &&
        primitiveCommand->K().tail<3>().norm() == 0.0) positionConstraint->weight().tail<3>() << 0.0,0.0,0.0;
+    std::cerr << "offset" << std::endl << offset.translation().transpose() << std::endl << offset.linear() << std::endl;
+    std::cerr << "target" << std::endl << primitiveCommand->targetPose().translation().transpose() << std::endl << primitiveCommand->targetPose().linear() << std::endl;
   }
 
   void PositionController::PositionTask::getIKConstraintsforCOM(std::vector<std::shared_ptr<IK::IKConstraint> >& ikConstraints, const cnoid::BodyPtr& robot_com, double dt, double weight) {
