@@ -31,7 +31,7 @@ void PrimitiveMotionLevelControllerService_impl::setParams(const whole_body_mast
 
 void PrimitiveMotionLevelControllerService_impl::getParams(whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam_out i_param)
 {
-  i_param = new whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam();
-  comp_->getParams(*i_param);
+  i_param = whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam();
+  comp_->getParams(i_param);
 };
 

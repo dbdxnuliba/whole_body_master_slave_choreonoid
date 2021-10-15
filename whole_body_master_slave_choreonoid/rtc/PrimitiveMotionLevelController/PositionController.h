@@ -24,7 +24,8 @@ namespace PrimitiveMotionLevel {
                  const cnoid::BodyPtr& robot_ref, // command level target
                  std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > >& jointLimitTablesMap,
                  cnoid::BodyPtr& robot_com, //output
-                 double dt
+                 double dt,
+                 int debugLevel
                  );
     const solve_mode_enum& solve_mode() const { return this->solve_mode_;}
     solve_mode_enum& solve_mode() { return this->solve_mode_;}
@@ -68,7 +69,8 @@ namespace PrimitiveMotionLevel {
       void solveFullbodyIK(cnoid::BodyPtr& robot_com,
                            const cnoid::BodyPtr& robot_ref,
                            const std::map<std::string, std::shared_ptr<PositionTask> >& positionTaskMap_,
-                           double dt);
+                           double dt,
+                           int debugLevel);
     protected:
       cnoid::VectorX jlim_avoid_weight_old_;
 
@@ -82,7 +84,8 @@ namespace PrimitiveMotionLevel {
                               const cnoid::BodyPtr& robot_ref,
                               const std::map<std::string, std::shared_ptr<PositionTask> >& positionTaskMap_,
                               std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > >& jointLimitTablesMap,
-                              double dt);
+                              double dt,
+                              int debugLevel);
     protected:
       std::vector<std::shared_ptr<prioritized_qp::Task> > prevTasks_;
 

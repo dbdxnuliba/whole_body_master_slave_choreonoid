@@ -18,19 +18,17 @@ static const char* PrimitiveMotionLevelController_spec[] = {
   "max_instance",      "10",
   "language",          "C++",
   "lang_type",         "compile",
-  "conf.default.debugLevel", "0",
   ""
 };
 
 PrimitiveMotionLevelController::PrimitiveMotionLevelController(RTC::Manager* manager) : RTC::DataFlowComponentBase(manager),
   ports_(),
-  m_debugLevel_(0)
+  debugLevel_(0)
 {
   this->ports_.m_service0_.setComp(this);
 }
 
 RTC::ReturnCode_t PrimitiveMotionLevelController::onInitialize(){
-  bindParameter("debugLevel", this->m_debugLevel_, "0");
 
   addInPort("qRefIn", this->ports_.m_qRefIn_);// from sh
   addInPort("basePosRefIn", this->ports_.m_basePosRefIn_);
@@ -63,6 +61,10 @@ RTC::ReturnCode_t PrimitiveMotionLevelController::onInitialize(){
   this->outputRatioInterpolator_ = std::make_shared<cpp_filters::TwoPointInterpolator<double> >(0.0,0.0,0.0,cpp_filters::HOFFARBIB);
 
   for(size_t i=0;i<this->m_robot_com_->numJoints();i++){
+    // apply margin
+    if(this->m_robot_ref_->joint(i)->q_upper() - this->m_robot_ref_->joint(i)->q_lower() > 0.002){
+      this->m_robot_com_->joint(i)->setJointRange(this->m_robot_ref_->joint(i)->q_lower()+0.001,this->m_robot_ref_->joint(i)->q_upper()-0.001);
+    }
     // 1.0だと安全.4.0は脚.10.0はlapid manipulation らしい
     this->m_robot_com_->joint(i)->setJointVelocityRange(std::max(this->m_robot_ref_->joint(i)->dq_lower(), -1.0),
                                                         std::min(this->m_robot_ref_->joint(i)->dq_upper(), 1.0));
@@ -74,6 +76,13 @@ RTC::ReturnCode_t PrimitiveMotionLevelController::onInitialize(){
   std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > jointLimitTables = joint_limit_table::readJointLimitTablesFromProperty (this->m_robot_com_, jointLimitTableStr);
   std::cerr << "[" << this->m_profile.instance_name << "] joint_limit_table: " << jointLimitTableStr<<std::endl;
   for(size_t i=0;i<jointLimitTables.size();i++){
+    // apply margin
+    for(size_t j=0;j<jointLimitTables[i]->lLimitTable().size();j++){
+      if(jointLimitTables[i]->uLimitTable()[j] - jointLimitTables[i]->lLimitTable()[j] > 0.002){
+        jointLimitTables[i]->uLimitTable()[j] -= 0.001;
+        jointLimitTables[i]->lLimitTable()[j] += 0.001;
+      }
+    }
     this->jointLimitTablesMap_[jointLimitTables[i]->getSelfJoint()].push_back(jointLimitTables[i]);
   }
 
@@ -244,7 +253,7 @@ RTC::ReturnCode_t PrimitiveMotionLevelController::onExecute(RTC::UniqueId ec_id)
       PrimitiveMotionLevelController::preProcessForControl(instance_name, this->positionController_);
     }
 
-    this->positionController_.control(this->primitiveCommandMap_, this->m_robot_ref_, this->jointLimitTablesMap_, this->m_robot_com_, dt);
+    this->positionController_.control(this->primitiveCommandMap_, this->m_robot_ref_, this->jointLimitTablesMap_, this->m_robot_com_, dt, this->debugLevel_);
 
   } else {
     // robot_refがそのままrobot_comになる
@@ -285,12 +294,14 @@ bool PrimitiveMotionLevelController::stopControl(){
 
 bool PrimitiveMotionLevelController::setParams(const whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param){
   std::cerr << "[" << m_profile.instance_name << "] "<< "setParams" << std::endl;
+  this->debugLevel_ = i_param.debugLevel;
   return true;
 }
 
 
 bool PrimitiveMotionLevelController::getParams(whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param){
   std::cerr << "[" << m_profile.instance_name << "] "<< "getParams" << std::endl;
+  i_param.debugLevel = this->debugLevel_;
   return true;
 }
 

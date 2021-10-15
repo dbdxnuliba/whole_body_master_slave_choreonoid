@@ -118,7 +118,7 @@ public:
 
 protected:
 
-  unsigned int m_debugLevel_;
+  unsigned int debugLevel_;
   unsigned int loop_;
 
   Ports ports_;
@@ -126,7 +126,8 @@ protected:
   std::shared_ptr<cpp_filters::TwoPointInterpolator<double> > outputRatioInterpolator_;
 
   cnoid::BodyPtr m_robot_ref_; // reference (q, basepos and baserpy only)
-  cnoid::BodyPtr m_robot_com_; // command
+  cnoid::BodyPtr m_robot_com_; // command<
+
 
   // 0. robotの設定
   std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > > jointLimitTablesMap_;

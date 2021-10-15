@@ -10,7 +10,7 @@ module whole_body_master_slave_choreonoid
   {
     struct PrimitiveMotionLevelControllerParam
     {
-      string hoge;
+      long debugLevel;
     };
     void setParams(in PrimitiveMotionLevelControllerParam i_param);
     void getParams(out PrimitiveMotionLevelControllerParam i_param);
