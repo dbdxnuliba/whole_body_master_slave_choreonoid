@@ -16,9 +16,12 @@
 #include <rtm/idl/ExtendedDataTypesSkel.h>
 #include <rtm/CorbaNaming.h>
 
+#include <cnoid/Body>
+
 #include <primitive_motion_level_msgs/idl/PrimitiveState.hh>
 #include "CFRControllerService_impl.h"
 #include "PrimitiveCommand.h"
+#include "CFRCalculator.h"
 
 class CFRController : public RTC::DataFlowComponentBase{
 public:
@@ -92,15 +95,19 @@ protected:
   Ports ports_;
   ControlMode mode_;
 
+  cnoid::BodyPtr robot_;
+
   // 1. portから受け取ったprimitive motion level 指令など
   std::map<std::string, std::shared_ptr<CFR::PrimitiveCommand> > primitiveCommandMap_;
+
+  CFR::CFRCalculator cFRCalculator_;
 
   // static functions
   static void readPorts(const std::string& instance_name, CFRController::Ports& port);
   static void getPrimitiveCommand(const std::string& instance_name, const CFRController::Ports& port, double dt, std::map<std::string, std::shared_ptr<CFR::PrimitiveCommand> >& primitiveCommandMap);
   static void processModeTransition(const std::string& instance_name, CFRController::ControlMode& mode);
   static void preProcessForControl(const std::string& instance_name);
-  static void calcOutputPorts(const std::string& instance_name, CFRController::Ports& port, std::map<std::string, std::shared_ptr<CFR::PrimitiveCommand> >& primitiveCommandMap);
+  static void calcOutputPorts(const std::string& instance_name, CFRController::Ports& port, std::map<std::string, std::shared_ptr<CFR::PrimitiveCommand> >& primitiveCommandMap, double dt);
 };
 
 

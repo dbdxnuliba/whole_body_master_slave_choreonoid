@@ -20,3 +20,9 @@
 - git:
     local-name: qp_solvers
     uri: https://github.com/Naoki-Hiraoka/qp_solvers.git
+- git:
+    local-name: static_equilibuim_test
+    uri: https://github.com/Naoki-Hiraoka/static_equilibuim_test.git
+- git:
+    local-name: lp_solvers
+    uri: https://github.com/Naoki-Hiraoka/lp_solvers.git

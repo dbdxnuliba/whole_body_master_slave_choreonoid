@@ -16,6 +16,9 @@ namespace CFR {
     targetOrientationInterpolator_(cnoid::Matrix3::Identity(),cnoid::Vector3::Zero(),cnoid::Vector3::Zero(),cpp_filters::HOFFARBIB),
     targetWrench_(cnoid::Vector6::Zero()),
     targetWrenchInterpolator_(cnoid::Vector6::Zero(),cnoid::Vector6::Zero(),cnoid::Vector6::Zero(),cpp_filters::HOFFARBIB),
+    wrenchC_(0,6),
+    wrenchld_(0),
+    wrenchud_(0),
     M_(cnoid::Vector6::Zero()),
     D_(cnoid::Vector6::Zero()),
     K_(cnoid::Vector6::Zero()),
@@ -50,6 +53,21 @@ namespace CFR {
       this->targetWrenchInterpolator_.setGoal(wrench,idl.time);
     }else{
       this->targetWrenchInterpolator_.reset(wrench);
+    }
+    this->wrenchC_ = Eigen::SparseMatrix<double,Eigen::RowMajor>(idl.wrenchC.length(),6);
+    for(size_t i=0;i<idl.wrenchC.length();i++)
+      for(size_t j=0;j<6;j++)
+        if(idl.wrenchC[i][j]!=0) this->wrenchC_.insert(i,j) = idl.wrenchC[i][j];
+    this->wrenchld_.resize(idl.wrenchld.length());
+    for(size_t i=0;i<idl.wrenchld.length();i++) this->wrenchld_[i] = idl.wrenchld[i];
+    this->wrenchud_.resize(idl.wrenchud.length());
+    for(size_t i=0;i<idl.wrenchud.length();i++) this->wrenchud_[i] = idl.wrenchud[i];
+    if(this->wrenchC_.rows() != this->wrenchld_.rows() ||
+       this->wrenchld_.rows() != this->wrenchud_.rows()){
+      std::cerr << "\x1b[31m[PrimitiveCommand::updateFromIdl] " << "dimension mismatch" << "\x1b[39m" << std::endl;
+      this->wrenchC_.resize(0,6);
+      this->wrenchld_.resize(0);
+      this->wrenchud_.resize(0);
     }
     for(size_t i=0;i<6;i++) this->M_[i] = idl.M[i];
     for(size_t i=0;i<6;i++) this->D_[i] = idl.D[i];

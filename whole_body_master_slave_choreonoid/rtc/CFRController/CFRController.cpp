@@ -1,4 +1,7 @@
 #include "CFRController.h"
+#include <cnoid/EigenUtil>
+#include <cnoid/BodyLoader>
+#include <cnoid/BasicSensors>
 
 #define DEBUGP (loop%200==0)
 #define DEBUGP_ONCE (loop==0)
@@ -31,7 +34,20 @@ RTC::ReturnCode_t CFRController::onInitialize(){
   this->ports_.m_CFRControllerServicePort_.registerProvider("service0", "CFRControllerService", this->ports_.m_service0_);
   addPort(this->ports_.m_CFRControllerServicePort_);
 
+  cnoid::BodyLoader bodyLoader;
+  std::string fileName;
+  if(this->getProperties().hasKey("model")) fileName = std::string(this->getProperties()["model"]);
+  else fileName = std::string(this->m_pManager->getConfig()["model"]); // 引数 -o で与えたプロパティを捕捉
+  std::cerr << "[" << this->m_profile.instance_name << "] model: " << fileName <<std::endl;
+  this->robot_ = bodyLoader.load(fileName);
+  if(!this->robot_){
+    std::cerr << "\x1b[31m[" << m_profile.instance_name << "] " << "failed to load model[" << fileName << "]" << "\x1b[39m" << std::endl;
+    return RTC::RTC_ERROR;
+  }
+
   this->loop_ = 0;
+
+  this->mode_.setNextMode(ControlMode::MODE_SYNC_TO_CONTROL);
 
   return RTC::RTC_OK;
 }
@@ -80,9 +96,22 @@ void CFRController::processModeTransition(const std::string& instance_name, CFRC
 void CFRController::preProcessForControl(const std::string& instance_name) {
 }
 
-void CFRController::calcOutputPorts(const std::string& instance_name, CFRController::Ports& port, std::map<std::string, std::shared_ptr<CFR::PrimitiveCommand> >& primitiveCommandMap) {
+void CFRController::calcOutputPorts(const std::string& instance_name, CFRController::Ports& port, std::map<std::string, std::shared_ptr<CFR::PrimitiveCommand> >& primitiveCommandMap, double dt) {
   // primitiveCommandCom
   port.m_primitiveCommandCom_ = port.m_primitiveCommandRef_;
+  for(int i=0;i<port.m_primitiveCommandCom_.data.length();i++){
+    const cnoid::Position& targetPose = primitiveCommandMap[std::string(port.m_primitiveCommandCom_.data[i].name)]->targetPose();
+    port.m_primitiveCommandCom_.data[i].time = dt;
+    port.m_primitiveCommandCom_.data[i].pose.position.x = targetPose.translation()[0];
+    port.m_primitiveCommandCom_.data[i].pose.position.y = targetPose.translation()[1];
+    port.m_primitiveCommandCom_.data[i].pose.position.z = targetPose.translation()[2];
+    cnoid::Vector3 rpy = cnoid::rpyFromRot(targetPose.linear());
+    port.m_primitiveCommandCom_.data[i].pose.orientation.r = rpy[0];
+    port.m_primitiveCommandCom_.data[i].pose.orientation.p = rpy[1];
+    port.m_primitiveCommandCom_.data[i].pose.orientation.y = rpy[2];
+    const cnoid::Vector6& targetWrench = primitiveCommandMap[std::string(port.m_primitiveCommandCom_.data[i].name)]->targetWrench();
+    for(size_t j=0;j<6;j++) port.m_primitiveCommandCom_.data[i].wrench[j] = targetWrench[j];
+  }
   port.m_primitiveCommandComOut_.write();
 }
 
@@ -105,10 +134,11 @@ RTC::ReturnCode_t CFRController::onExecute(RTC::UniqueId ec_id){
       CFRController::preProcessForControl(instance_name);
     }
 
+    cFRCalculator_.computeCFR(this->primitiveCommandMap_, this->robot_, this->debugLevel_);
   }
 
   // write outport
-  CFRController::calcOutputPorts(instance_name, this->ports_, this->primitiveCommandMap_);
+  CFRController::calcOutputPorts(instance_name, this->ports_, this->primitiveCommandMap_, dt);
 
   this->loop_++;
   return RTC::RTC_OK;

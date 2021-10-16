@@ -2,6 +2,7 @@
 #define CFRController_PrimitiveCommand_H
 
 #include <cnoid/Body>
+#include <Eigen/Eigen>
 #include <primitive_motion_level_msgs/idl/PrimitiveState.hh>
 #include <cpp_filters/TwoPointInterpolator.h>
 
@@ -16,6 +17,9 @@ namespace CFR {
     const cnoid::Position& localPose() const { return localPose_;}
     const cnoid::Position& targetPose() const { return targetPose_;}
     const cnoid::Vector6& targetWrench() const { return targetWrench_;}
+    const Eigen::SparseMatrix<double,Eigen::RowMajor>& wrenchC() const { return wrenchC_;}
+    const cnoid::VectorX& wrenchld() const { return wrenchld_;}
+    const cnoid::VectorX& wrenchud() const { return wrenchud_;}
     const cnoid::Vector6& M() const { return M_;}
     const cnoid::Vector6& D() const { return D_;}
     const cnoid::Vector6& K() const { return K_;}
@@ -35,6 +39,10 @@ namespace CFR {
     cpp_filters::TwoPointInterpolatorSO3 targetOrientationInterpolator_; //world frame
     cnoid::Vector6 targetWrench_; //world frame
     cpp_filters::TwoPointInterpolator<cnoid::Vector6> targetWrenchInterpolator_; //world frame
+
+    Eigen::SparseMatrix<double,Eigen::RowMajor> wrenchC_;
+    cnoid::VectorX wrenchld_;
+    cnoid::VectorX wrenchud_;
 
     cnoid::Vector6 M_, D_, K_;// local frame
 
