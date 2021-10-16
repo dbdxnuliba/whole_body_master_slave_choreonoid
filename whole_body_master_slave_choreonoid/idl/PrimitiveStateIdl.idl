@@ -3,6 +3,8 @@
 module whole_body_master_slave_choreonoid
 {
   typedef double DblSequence6[6];
+  typedef sequence<double> DblSequence;
+  typedef sequence<DblSequence6> DblSequence6Sequence;
 
   struct PrimitiveStateIdl
   {
@@ -16,15 +18,21 @@ module whole_body_master_slave_choreonoid
     DblSequence6 wrench;
 
     // local frame
-    DblSequence6 M;
-    DblSequence6 D;
-    DblSequence6 K;
+    DblSequence6Sequence poseC; //pose の error の制約
+    DblSequence poseld;
+    DblSequence  poseud;
+    DblSequence6Sequence wrenchC; //wrench の制約
+    DblSequence wrenchld;
+    DblSequence wrenchud;
 
     // local frame
     DblSequence6 actWrench; // Position control only
     DblSequence6 wrenchGain; // Position control only
+    DblSequence6 M;
+    DblSequence6 D;
+    DblSequence6 K;
 
-    // trueならfalseよりもIK高優先度
+    // 支持脚かどうか
     boolean supportCOM;
   };
 

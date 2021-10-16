@@ -5,12 +5,18 @@
 #     - name: <name>
 #       parent_link_name: <linkname for URDF>
 #       local_pose: [x, y, z, x, y, z, w] # default 0,0,0,0,0,0,1
+#       wrenchC: [?, ?, ?, ?, ?, ?,
+#                 ?, ?, ?, ?, ?, ? ...] # default []
+#       wrenchld: [?,
+#                  ? ...] # default []
+#       wrenchud: [?,
+#                  ? ...] # default []
+#       support_com: <bool> #default false
+#       time: <double> # default 0.1
+#       wrench_gain: [x ,y, z, rx, ry, rz] # default 0
 #       M: [x ,y, z, rx, ry, rz] # default 10, 10, 10, 5, 5, 5
 #       D: [x ,y, z, rx, ry, rz] # default 200, 200, 200, 100, 100, 100
 #       K: [x ,y, z, rx, ry, rz] # default 400, 400, 400, 200, 200, 200
-#       wrench_gain: [x ,y, z, rx, ry, rz] # default 0
-#       support_com: <bool> #default false
-#       time: <double> # default 0.1
 
 # publish
 #   ~command: whole_body_master_slave_choreonoid/PrimitiveStateArray
@@ -67,22 +73,6 @@ class EndEffector:
             self.state.local_pose.orientation.y = 0.0
             self.state.local_pose.orientation.z = 0.0
             self.state.local_pose.orientation.w = 1.0
-        if "M" in param:
-            self.state.M = param["M"]
-        else:
-            self.state.M = [10.0, 10.0, 10.0, 5.0, 5.0, 5.0]
-        if "D" in param:
-            self.state.D = param["D"]
-        else:
-            self.state.D = [200.0, 200.0, 200.0, 100.0, 100.0, 100.0]
-        if "K" in param:
-            self.state.K = param["K"]
-        else:
-            self.state.K = [400.0, 400.0, 400.0, 200.0, 200.0, 200.0]
-        if "wrench_gain" in param:
-            self.state.wrench_gain = param["wrench_gain"]
-        else:
-            self.state.wrench_gain = [0.0] * 6
         if "support_com" in param:
             self.state.support_com = param["support_com"]
         else:
@@ -91,6 +81,34 @@ class EndEffector:
             self.state.time = param["time"]
         else:
             self.state.time = 0.1
+        if "wrenchC" in param:
+            self.state.wrenchC = map(lambda x: float(x), param["wrenchC"])
+        else:
+            self.state.wrenchC = []
+        if "wrenchld" in param:
+            self.state.wrenchld = map(lambda x: float(x), param["wrenchld"])
+        else:
+            self.state.wrenchld = []
+        if "wrenchud" in param:
+            self.state.wrenchud = map(lambda x: float(x), param["wrenchud"])
+        else:
+            self.state.wrenchud = []
+        if "M" in param:
+            self.state.M = map(lambda x: float(x), param["M"])
+        else:
+            self.state.M = [10.0, 10.0, 10.0, 5.0, 5.0, 5.0]
+        if "D" in param:
+            self.state.D = map(lambda x: float(x), param["D"])
+        else:
+            self.state.D = [200.0, 200.0, 200.0, 100.0, 100.0, 100.0]
+        if "K" in param:
+            self.state.K = map(lambda x: float(x), param["K"])
+        else:
+            self.state.K = [400.0, 400.0, 400.0, 200.0, 200.0, 200.0]
+        if "wrench_gain" in param:
+            self.state.wrench_gain = map(lambda x: float(x), param["wrench_gain"])
+        else:
+            self.state.wrench_gain = [0.0] * 6
 
         self.int_marker = InteractiveMarker()
         self.int_marker.name = self.state.name

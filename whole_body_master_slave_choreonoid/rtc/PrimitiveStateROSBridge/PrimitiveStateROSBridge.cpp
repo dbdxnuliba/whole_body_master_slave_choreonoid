@@ -96,6 +96,30 @@ RTC::ReturnCode_t PrimitiveStateROSBridge::onExecute(RTC::UniqueId ec_id){
       state.pose.orientation.w = quat.w();
       state.wrench.resize(6);
       for(int j=0;j<6;j++) state.wrench[j] = m_primitiveCommandRTM_.data[i].wrench[j];
+      state.poseC.resize(m_primitiveCommandRTM_.data[i].poseC.length()*6);
+      for(int j=0;j<m_primitiveCommandRTM_.data[i].poseC.length();j++){
+        for(int k=0;k<6;k++) state.poseC[j*6+k] = m_primitiveCommandRTM_.data[i].poseC[j][k];
+      }
+      state.poseld.resize(m_primitiveCommandRTM_.data[i].poseld.length());
+      for(int j=0;j<m_primitiveCommandRTM_.data[i].poseld.length();j++){
+        state.poseld[j] = m_primitiveCommandRTM_.data[i].poseld[j];
+      }
+      state.poseud.resize(m_primitiveCommandRTM_.data[i].poseud.length());
+      for(int j=0;j<m_primitiveCommandRTM_.data[i].poseud.length();j++){
+        state.poseud[j] = m_primitiveCommandRTM_.data[i].poseud[j];
+      }
+      state.wrenchC.resize(m_primitiveCommandRTM_.data[i].wrenchC.length()*6);
+      for(int j=0;j<m_primitiveCommandRTM_.data[i].wrenchC.length();j++){
+        for(int k=0;k<6;k++) state.wrenchC[j*6+k] = m_primitiveCommandRTM_.data[i].wrenchC[j][k];
+      }
+      state.wrenchld.resize(m_primitiveCommandRTM_.data[i].wrenchld.length());
+      for(int j=0;j<m_primitiveCommandRTM_.data[i].wrenchld.length();j++){
+        state.wrenchld[j] = m_primitiveCommandRTM_.data[i].wrenchld[j];
+      }
+      state.wrenchud.resize(m_primitiveCommandRTM_.data[i].wrenchud.length());
+      for(int j=0;j<m_primitiveCommandRTM_.data[i].wrenchud.length();j++){
+        state.wrenchud[j] = m_primitiveCommandRTM_.data[i].wrenchud[j];
+      }
       state.M.resize(6);
       for(int j=0;j<6;j++) state.M[j] = m_primitiveCommandRTM_.data[i].M[j];
       state.D.resize(6);
@@ -140,6 +164,38 @@ void PrimitiveStateROSBridge::topicCallback(const whole_body_master_slave_choreo
       for(int j=0;j<msg->primitive_state[i].wrench.size();j++) m_primitiveCommandROS_.data[i].wrench[j] = msg->primitive_state[i].wrench[j];
     }else{
       for(int j=0;j<msg->primitive_state[i].wrench.size();j++) m_primitiveCommandROS_.data[i].wrench[j] = 0.0;
+    }
+    if(msg->primitive_state[i].poseC.size() % 6 == 0){
+      m_primitiveCommandROS_.data[i].poseC.length(msg->primitive_state[i].poseC.size() / 6);
+      for(int j=0;j<m_primitiveCommandROS_.data[i].poseC.length(); j++) {
+        for(int k=0;k<6;k++){
+          m_primitiveCommandROS_.data[i].poseC[j][k] = msg->primitive_state[i].poseC[j*6+k];
+        }
+      }
+    }
+    m_primitiveCommandROS_.data[i].poseld.length(msg->primitive_state[i].poseld.size());
+    for(int j=0;j<m_primitiveCommandROS_.data[i].poseld.length(); j++) {
+        m_primitiveCommandROS_.data[i].poseld[j] = msg->primitive_state[i].poseld[j];
+    }
+    m_primitiveCommandROS_.data[i].poseud.length(msg->primitive_state[i].poseud.size());
+    for(int j=0;j<m_primitiveCommandROS_.data[i].poseud.length(); j++) {
+        m_primitiveCommandROS_.data[i].poseud[j] = msg->primitive_state[i].poseud[j];
+    }
+    if(msg->primitive_state[i].wrenchC.size() % 6 == 0){
+      m_primitiveCommandROS_.data[i].wrenchC.length(msg->primitive_state[i].wrenchC.size() / 6);
+      for(int j=0;j<m_primitiveCommandROS_.data[i].wrenchC.length(); j++) {
+        for(int k=0;k<6;k++){
+          m_primitiveCommandROS_.data[i].wrenchC[j][k] = msg->primitive_state[i].wrenchC[j*6+k];
+        }
+      }
+    }
+    m_primitiveCommandROS_.data[i].wrenchld.length(msg->primitive_state[i].wrenchld.size());
+    for(int j=0;j<m_primitiveCommandROS_.data[i].wrenchld.length(); j++) {
+        m_primitiveCommandROS_.data[i].wrenchld[j] = msg->primitive_state[i].wrenchld[j];
+    }
+    m_primitiveCommandROS_.data[i].wrenchud.length(msg->primitive_state[i].wrenchud.size());
+    for(int j=0;j<m_primitiveCommandROS_.data[i].wrenchud.length(); j++) {
+        m_primitiveCommandROS_.data[i].wrenchud[j] = msg->primitive_state[i].wrenchud[j];
     }
     if(msg->primitive_state[i].M.size() == 6) {
       for(int j=0;j<msg->primitive_state[i].M.size();j++) m_primitiveCommandROS_.data[i].M[j] = msg->primitive_state[i].M[j];
