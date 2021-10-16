@@ -31,6 +31,7 @@ RTC::ReturnCode_t CFRController::onInitialize(){
 
   addInPort("primitiveCommandRefIn", this->ports_.m_primitiveCommandRefIn_);
   addOutPort("primitiveCommandComOut", this->ports_.m_primitiveCommandComOut_);
+  addOutPort("verticesOut", this->ports_.m_verticesOut_);
   this->ports_.m_CFRControllerServicePort_.registerProvider("service0", "CFRControllerService", this->ports_.m_service0_);
   addPort(this->ports_.m_CFRControllerServicePort_);
 
@@ -102,7 +103,8 @@ void CFRController::calcOutputPorts(const std::string& instance_name,
                                     double dt,
                                     const Eigen::SparseMatrix<double,Eigen::RowMajor>& M,// world frame
                                     const Eigen::VectorXd& l,// world frame
-                                    const Eigen::VectorXd& u// world frame
+                                    const Eigen::VectorXd& u,// world frame
+                                    const std::vector<Eigen::Vector2d>& vertices// world frame
                                     ){
   // primitiveCommand
   port.m_primitiveCommandCom_ = port.m_primitiveCommandRef_;
@@ -167,8 +169,16 @@ void CFRController::calcOutputPorts(const std::string& instance_name,
     port.m_primitiveCommandCom_.data[comIdx].wrenchld[i] = l_local[i];
     port.m_primitiveCommandCom_.data[comIdx].wrenchud[i] = u_local[i];
   }
-
   port.m_primitiveCommandComOut_.write();
+
+  // vertices
+  port.m_vertices_.tm = port.m_primitiveCommandRef_.tm;
+  port.m_vertices_.data.length(vertices.size()*2);
+  for(int i=0;i<vertices.size();i++){
+    for(int j=0;j<2;j++) port.m_vertices_.data[i*2+j] = vertices[i][j];
+  }
+  port.m_verticesOut_.write();
+
 }
 
 RTC::ReturnCode_t CFRController::onExecute(RTC::UniqueId ec_id){
@@ -189,20 +199,22 @@ RTC::ReturnCode_t CFRController::onExecute(RTC::UniqueId ec_id){
   Eigen::SparseMatrix<double,Eigen::RowMajor> M(0,2);
   Eigen::VectorXd l;
   Eigen::VectorXd u;
+  std::vector<Eigen::Vector2d> vertices;
   if(this->mode_.isRunning()) {
     if(this->mode_.isInitialize()){
       CFRController::preProcessForControl(instance_name);
     }
 
     if(cFRCalculator_.computeCFR(this->primitiveCommandMap_, this->robot_, this->debugLevel_)){
-      M = cFRCalculator_.M();
-      l = cFRCalculator_.l();
-      u = cFRCalculator_.u();
+      M = this->cFRCalculator_.M();
+      l = this->cFRCalculator_.l();
+      u = this->cFRCalculator_.u();
+      vertices = this->cFRCalculator_.vertices();
     }
   }
 
   // write outport
-  CFRController::calcOutputPorts(instance_name, this->ports_, this->primitiveCommandMap_, dt,M,l,u);
+  CFRController::calcOutputPorts(instance_name, this->ports_, this->primitiveCommandMap_, dt,M,l,u, vertices);
 
   this->loop_++;
   return RTC::RTC_OK;

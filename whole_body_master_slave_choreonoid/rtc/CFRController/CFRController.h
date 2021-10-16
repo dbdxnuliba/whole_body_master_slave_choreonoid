@@ -31,6 +31,7 @@ public:
       m_primitiveCommandRefIn_("primitiveCommandRefIn", m_primitiveCommandRef_),
 
       m_primitiveCommandComOut_("primitiveCommandComOut", m_primitiveCommandCom_),
+      m_verticesOut_("verticesOut", m_vertices_),
 
       m_CFRControllerServicePort_("CFRControllerService") {
     }
@@ -40,6 +41,8 @@ public:
 
     primitive_motion_level_msgs::TimedPrimitiveStateSeq m_primitiveCommandCom_;
     RTC::OutPort <primitive_motion_level_msgs::TimedPrimitiveStateSeq> m_primitiveCommandComOut_;
+    RTC::TimedDoubleSeq m_vertices_;
+    RTC::OutPort<RTC::TimedDoubleSeq> m_verticesOut_;
 
     CFRControllerService_impl m_service0_;
     RTC::CorbaPort m_CFRControllerServicePort_;
@@ -113,7 +116,8 @@ protected:
                               double dt,
                               const Eigen::SparseMatrix<double,Eigen::RowMajor>& M,
                               const Eigen::VectorXd& l,
-                              const Eigen::VectorXd& u);
+                              const Eigen::VectorXd& u,
+                              const std::vector<Eigen::Vector2d>& vertices);
 };
 
 
