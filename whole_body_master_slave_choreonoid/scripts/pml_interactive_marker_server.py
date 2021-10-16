@@ -22,8 +22,9 @@ import copy
 
 import rospy
 
-from visualization_msgs.msg import InteractiveMarker, InteractiveMarkerControl, InteractiveMarkerFeedback
+from visualization_msgs.msg import InteractiveMarker, InteractiveMarkerControl, InteractiveMarkerFeedback, Marker
 from interactive_markers.interactive_marker_server import InteractiveMarkerServer
+from interactive_markers.menu_handler import MenuHandler
 import tf
 from tf import TransformListener, transformations
 from whole_body_master_slave_choreonoid.msg import PrimitiveState, PrimitiveStateArray
@@ -34,6 +35,7 @@ tf_prefix = ""
 
 class EndEffector:
     server = None
+    menu_handler = None
     tfl = None
     int_marker = None
     state = None
@@ -41,6 +43,7 @@ class EndEffector:
     def __init__(self, interactiveMarkerServer, tfListener, param):
         self.server = interactiveMarkerServer
         self.tfl = tfListener
+        self.menu_handler = MenuHandler()
 
         self.state = PrimitiveState()
         self.state.name = param["name"]
@@ -145,7 +148,28 @@ class EndEffector:
         control.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
         self.int_marker.controls.append(copy.deepcopy(control))
 
+        control = InteractiveMarkerControl()
+        control.interaction_mode = InteractiveMarkerControl.BUTTON
+        control.always_visible = True
+        control.markers.append( Marker() )
+        control.markers[0].type = Marker.CUBE
+        control.markers[0].scale.x = 0.08
+        control.markers[0].scale.y = 0.08
+        control.markers[0].scale.z = 0.08
+        control.markers[0].color.r = 0.8
+        control.markers[0].color.g = 0.8
+        control.markers[0].color.b = 0.8
+        control.markers[0].color.a = 0.5
+        self.int_marker.controls.append(control)
+
         self.server.insert(self.int_marker, self.processFeedback)
+
+        entry = self.menu_handler.insert( "Support COM", callback=self.supportCOMCb )
+        if self.state.support_com:
+            self.menu_handler.setCheckState( entry, MenuHandler.CHECKED )
+        else:
+            self.menu_handler.setCheckState( entry, MenuHandler.UNCHECKED )
+        self.menu_handler.apply(self.server, self.state.name)
 
         self.server.applyChanges()
         self.is_active = True
@@ -161,6 +185,19 @@ class EndEffector:
     def processFeedback(self, feedback):
         if feedback.event_type == InteractiveMarkerFeedback.POSE_UPDATE:
             self.state.pose = copy.deepcopy(feedback.pose)
+
+    def supportCOMCb(self, feedback):
+        handle = feedback.menu_entry_id
+        state = self.menu_handler.getCheckState( handle )
+        if state == MenuHandler.CHECKED:
+            self.menu_handler.setCheckState( handle, MenuHandler.UNCHECKED )
+            self.state.support_com = False
+        else:
+            self.menu_handler.setCheckState( handle, MenuHandler.CHECKED )
+            self.state.support_com = True
+        self.menu_handler.reApply( self.server )
+        self.server.applyChanges()
+
 
 if __name__ == "__main__":
     rospy.init_node("pml_interactive_marker_server")
