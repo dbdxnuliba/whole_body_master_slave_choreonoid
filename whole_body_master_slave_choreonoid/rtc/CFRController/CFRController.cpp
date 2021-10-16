@@ -186,7 +186,7 @@ RTC::ReturnCode_t CFRController::onExecute(RTC::UniqueId ec_id){
   CFRController::processModeTransition(instance_name, this->mode_);
 
   // 重心world XY座標のFR
-  Eigen::SparseMatrix<double,Eigen::RowMajor> M(0,6);
+  Eigen::SparseMatrix<double,Eigen::RowMajor> M(0,2);
   Eigen::VectorXd l;
   Eigen::VectorXd u;
   if(this->mode_.isRunning()) {
