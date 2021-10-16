@@ -120,6 +120,8 @@ RTC::ReturnCode_t PrimitiveStateROSBridge::onExecute(RTC::UniqueId ec_id){
       for(int j=0;j<m_primitiveCommandRTM_.data[i].wrenchud.length();j++){
         state.wrenchud[j] = m_primitiveCommandRTM_.data[i].wrenchud[j];
       }
+      state.follow_pose = m_primitiveCommandRTM_.data[i].followPose;
+      state.follow_wrench = m_primitiveCommandRTM_.data[i].followWrench;
       state.M.resize(6);
       for(int j=0;j<6;j++) state.M[j] = m_primitiveCommandRTM_.data[i].M[j];
       state.D.resize(6);
@@ -197,6 +199,8 @@ void PrimitiveStateROSBridge::topicCallback(const whole_body_master_slave_choreo
     for(int j=0;j<m_primitiveCommandROS_.data[i].wrenchud.length(); j++) {
         m_primitiveCommandROS_.data[i].wrenchud[j] = msg->primitive_state[i].wrenchud[j];
     }
+    m_primitiveCommandROS_.data[i].followPose = msg->primitive_state[i].follow_pose;
+    m_primitiveCommandROS_.data[i].followWrench = msg->primitive_state[i].follow_wrench;
     if(msg->primitive_state[i].M.size() == 6) {
       for(int j=0;j<msg->primitive_state[i].M.size();j++) m_primitiveCommandROS_.data[i].M[j] = msg->primitive_state[i].M[j];
     }else{

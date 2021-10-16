@@ -1,12 +1,10 @@
-# PrimitiveMotionLevelController
+# CFRController
 
 ## InPort
 - `qRef` (RTC::TimedDoubleSeq) [REQUIRED]
 - `basePosRef` (RTC::TimedPoint3D) [REQUIRED]
 - `baseRpyRef` (RTC::TimedOrientation3D) [REQUIRED]
 - `primitiveCommandRef` (whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq) [REQUIRED]
-- `qAct` (RTC::TimedDoubleSeq) [REQUIRED]
-- `imuAct` (RTC::TimedOrientation3D) [REQUIRED]
 
 ## OutPort
 - `qCom` (RTC::TimedDoubleSeq)
@@ -14,4 +12,4 @@
 - `baseRpyCom` (RTC::TimedOrientation3D)
 
 ## ServiceServer
-- `service0` (whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService)
+- `service0` (whole_body_master_slave_choreonoid::CFRControllerService)

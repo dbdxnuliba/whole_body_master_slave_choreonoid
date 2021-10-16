@@ -12,6 +12,8 @@ float64[] poseud
 float64[] wrenchC
 float64[] wrenchld
 float64[] wrenchud
+bool follow_pose
+bool follow_wrench
 
 float64[] act_wrench
 float64[] wrench_gain

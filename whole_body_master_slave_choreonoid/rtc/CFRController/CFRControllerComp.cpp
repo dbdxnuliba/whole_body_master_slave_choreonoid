@@ -10,15 +10,15 @@
 #include <rtm/Manager.h>
 #include <iostream>
 #include <string>
-#include "PrimitiveMotionLevelCOMController.h"
+#include "CFRController.h"
 
 void MyModuleInit(RTC::Manager* manager)
 {
-  PrimitiveMotionLevelCOMControllerInit(manager);
+  CFRControllerInit(manager);
   RTC::RtcBase* comp;
 
   // Create a component
-  comp = manager->createComponent("PrimitiveMotionLevelCOMController");
+  comp = manager->createComponent("CFRController");
 
   return;
 }

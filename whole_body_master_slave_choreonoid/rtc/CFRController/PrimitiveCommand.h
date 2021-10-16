@@ -1,11 +1,11 @@
-#ifndef PrimitiveMotionLevelController_PrimitiveCommand_H
-#define PrimitiveMotionLevelController_PrimitiveCommand_H
+#ifndef CFRController_PrimitiveCommand_H
+#define CFRController_PrimitiveCommand_H
 
 #include <cnoid/Body>
 #include <whole_body_master_slave_choreonoid/idl/PrimitiveStateIdl.hh>
 #include <cpp_filters/TwoPointInterpolator.h>
 
-namespace PrimitiveMotionLevel {
+namespace CFR {
   class PrimitiveCommand {
   public:
     PrimitiveCommand(const std::string& name);
@@ -22,7 +22,7 @@ namespace PrimitiveMotionLevel {
     const cnoid::Vector6& actWrench() const { return actWrench_;}
     const cnoid::Vector6& wrenchGain() const { return wrenchGain_;}
     const bool& supportCOM() const { return supportCOM_; }
-    const bool& supportCOMChanged() const { return supportCOMChanged_;}
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   protected:
     std::string name_;
     std::string parentLinkName_;
@@ -42,7 +42,8 @@ namespace PrimitiveMotionLevel {
     cnoid::Vector6 wrenchGain_; // local frame // Position control only
 
     bool supportCOM_;
-    bool supportCOMChanged_;
+
+    bool isInitial_;
   };
 }
 

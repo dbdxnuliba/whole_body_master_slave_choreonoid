@@ -1,0 +1,21 @@
+/**
+ * @file PrimitiveMotionLevelControllerService.idl
+ * @brief Services for the PrimitiveMotionLevelController interface
+ */
+#include "PrimitiveStateIdl.idl"
+#include "ExtendedDataTypes.idl" // openrtm
+module whole_body_master_slave_choreonoid
+{
+  interface CFRControllerService
+  {
+    struct CFRControllerParam
+    {
+      long debugLevel;
+    };
+    void setParams(in CFRControllerParam i_param);
+    void getParams(out CFRControllerParam i_param);
+
+    boolean startControl();
+    boolean stopControl();
+  };
+};

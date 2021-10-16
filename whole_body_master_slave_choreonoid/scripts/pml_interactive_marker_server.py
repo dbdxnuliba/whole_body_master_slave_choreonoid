@@ -11,6 +11,8 @@
 #                  ? ...] # default []
 #       wrenchud: [?,
 #                  ? ...] # default []
+#       follow_pose: <bool> # default true
+#       follow_wrench: <bool> # default false
 #       support_com: <bool> #default false
 #       time: <double> # default 0.1
 #       wrench_gain: [x ,y, z, rx, ry, rz] # default 0
@@ -93,6 +95,14 @@ class EndEffector:
             self.state.wrenchud = map(lambda x: float(x), param["wrenchud"])
         else:
             self.state.wrenchud = []
+        if "follow_pose" in param:
+            self.state.follow_pose = param["follow_pose"]
+        else:
+            self.state.follow_pose = True
+        if "follow_wrench" in param:
+            self.state.follow_wrench = param["follow_wrench"]
+        else:
+            self.state.follow_wrench = False
         if "M" in param:
             self.state.M = map(lambda x: float(x), param["M"])
         else:

@@ -24,6 +24,8 @@ module whole_body_master_slave_choreonoid
     DblSequence6Sequence wrenchC; //wrench の制約
     DblSequence wrenchld;
     DblSequence wrenchud;
+    boolean followPose; // pose に追従するか
+    boolean followWrench; // wrench に追従するか
 
     // local frame
     DblSequence6 actWrench; // Position control only
