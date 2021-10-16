@@ -96,8 +96,15 @@ void CFRController::processModeTransition(const std::string& instance_name, CFRC
 void CFRController::preProcessForControl(const std::string& instance_name) {
 }
 
-void CFRController::calcOutputPorts(const std::string& instance_name, CFRController::Ports& port, std::map<std::string, std::shared_ptr<CFR::PrimitiveCommand> >& primitiveCommandMap, double dt) {
-  // primitiveCommandCom
+void CFRController::calcOutputPorts(const std::string& instance_name,
+                                    CFRController::Ports& port,
+                                    std::map<std::string, std::shared_ptr<CFR::PrimitiveCommand> >& primitiveCommandMap,
+                                    double dt,
+                                    const Eigen::SparseMatrix<double,Eigen::RowMajor>& M,// world frame
+                                    const Eigen::VectorXd& l,// world frame
+                                    const Eigen::VectorXd& u// world frame
+                                    ){
+  // primitiveCommand
   port.m_primitiveCommandCom_ = port.m_primitiveCommandRef_;
   for(int i=0;i<port.m_primitiveCommandCom_.data.length();i++){
     const cnoid::Position& targetPose = primitiveCommandMap[std::string(port.m_primitiveCommandCom_.data[i].name)]->targetPose();
@@ -112,6 +119,55 @@ void CFRController::calcOutputPorts(const std::string& instance_name, CFRControl
     const cnoid::Vector6& targetWrench = primitiveCommandMap[std::string(port.m_primitiveCommandCom_.data[i].name)]->targetWrench();
     for(size_t j=0;j<6;j++) port.m_primitiveCommandCom_.data[i].wrench[j] = targetWrench[j];
   }
+
+  // com Feasible Region
+  int comIdx = -1;
+  for(int i=0;i<port.m_primitiveCommandCom_.data.length();i++){
+    if(port.m_primitiveCommandCom_.data[i].name == "com") comIdx = i;
+  }
+  if(comIdx == -1){
+    comIdx = port.m_primitiveCommandCom_.data.length();
+    port.m_primitiveCommandCom_.data.length(port.m_primitiveCommandCom_.data.length()+1);
+    port.m_primitiveCommandCom_.data[comIdx].name="com";
+    port.m_primitiveCommandCom_.data[comIdx].parentLinkName="com";
+    port.m_primitiveCommandCom_.data[comIdx].localPose.position.x=0.0;
+    port.m_primitiveCommandCom_.data[comIdx].localPose.position.y=0.0;
+    port.m_primitiveCommandCom_.data[comIdx].localPose.position.z=0.0;
+    port.m_primitiveCommandCom_.data[comIdx].localPose.orientation.r=0.0;
+    port.m_primitiveCommandCom_.data[comIdx].localPose.orientation.p=0.0;
+    port.m_primitiveCommandCom_.data[comIdx].localPose.orientation.y=0.0;
+    port.m_primitiveCommandCom_.data[comIdx].time = dt;
+    port.m_primitiveCommandCom_.data[comIdx].pose.position.x=0.0;
+    port.m_primitiveCommandCom_.data[comIdx].pose.position.y=0.0;
+    port.m_primitiveCommandCom_.data[comIdx].pose.position.z=0.0;
+    port.m_primitiveCommandCom_.data[comIdx].pose.orientation.r=0.0;
+    port.m_primitiveCommandCom_.data[comIdx].pose.orientation.p=0.0;
+    port.m_primitiveCommandCom_.data[comIdx].pose.orientation.y=0.0;
+    port.m_primitiveCommandCom_.data[comIdx].followPose = false;
+    port.m_primitiveCommandCom_.data[comIdx].followWrench = false;
+    port.m_primitiveCommandCom_.data[comIdx].supportCOM = false;
+  }
+  cnoid::Position comPose;
+  comPose.translation()[0] = port.m_primitiveCommandCom_.data[comIdx].pose.position.x;
+  comPose.translation()[1] = port.m_primitiveCommandCom_.data[comIdx].pose.position.y;
+  comPose.translation()[2] = port.m_primitiveCommandCom_.data[comIdx].pose.position.z;
+  comPose.linear() = cnoid::rotFromRpy(port.m_primitiveCommandCom_.data[comIdx].pose.orientation.r,
+                                       port.m_primitiveCommandCom_.data[comIdx].pose.orientation.p,
+                                       port.m_primitiveCommandCom_.data[comIdx].pose.orientation.y);
+  cnoid::VectorX l_local = l - M * comPose.translation().head<2>();
+  cnoid::VectorX u_local = u - M * comPose.translation().head<2>();
+  cnoid::MatrixXd M_local = M * comPose.linear().topRows<2>();
+  port.m_primitiveCommandCom_.data[comIdx].wrenchC.length(M_local.rows());
+  port.m_primitiveCommandCom_.data[comIdx].wrenchld.length(l_local.rows());
+  port.m_primitiveCommandCom_.data[comIdx].wrenchud.length(u_local.rows());
+  for(int i=0;i<M_local.rows();i++){
+    for(int j=0;j<3;j++){
+      port.m_primitiveCommandCom_.data[comIdx].wrenchC[i][j] = M_local(i,j);
+    }
+    port.m_primitiveCommandCom_.data[comIdx].wrenchld[i] = l_local[i];
+    port.m_primitiveCommandCom_.data[comIdx].wrenchud[i] = u_local[i];
+  }
+
   port.m_primitiveCommandComOut_.write();
 }
 
@@ -129,16 +185,24 @@ RTC::ReturnCode_t CFRController::onExecute(RTC::UniqueId ec_id){
   // mode遷移を実行
   CFRController::processModeTransition(instance_name, this->mode_);
 
+  // 重心world XY座標のFR
+  Eigen::SparseMatrix<double,Eigen::RowMajor> M(0,6);
+  Eigen::VectorXd l;
+  Eigen::VectorXd u;
   if(this->mode_.isRunning()) {
     if(this->mode_.isInitialize()){
       CFRController::preProcessForControl(instance_name);
     }
 
-    cFRCalculator_.computeCFR(this->primitiveCommandMap_, this->robot_, this->debugLevel_);
+    if(cFRCalculator_.computeCFR(this->primitiveCommandMap_, this->robot_, this->debugLevel_)){
+      M = cFRCalculator_.M();
+      l = cFRCalculator_.l();
+      u = cFRCalculator_.u();
+    }
   }
 
   // write outport
-  CFRController::calcOutputPorts(instance_name, this->ports_, this->primitiveCommandMap_, dt);
+  CFRController::calcOutputPorts(instance_name, this->ports_, this->primitiveCommandMap_, dt,M,l,u);
 
   this->loop_++;
   return RTC::RTC_OK;

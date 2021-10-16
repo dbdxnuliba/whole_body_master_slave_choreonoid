@@ -107,7 +107,13 @@ protected:
   static void getPrimitiveCommand(const std::string& instance_name, const CFRController::Ports& port, double dt, std::map<std::string, std::shared_ptr<CFR::PrimitiveCommand> >& primitiveCommandMap);
   static void processModeTransition(const std::string& instance_name, CFRController::ControlMode& mode);
   static void preProcessForControl(const std::string& instance_name);
-  static void calcOutputPorts(const std::string& instance_name, CFRController::Ports& port, std::map<std::string, std::shared_ptr<CFR::PrimitiveCommand> >& primitiveCommandMap, double dt);
+  static void calcOutputPorts(const std::string& instance_name,
+                              CFRController::Ports& port,
+                              std::map<std::string, std::shared_ptr<CFR::PrimitiveCommand> >& primitiveCommandMap,
+                              double dt,
+                              const Eigen::SparseMatrix<double,Eigen::RowMajor>& M,
+                              const Eigen::VectorXd& l,
+                              const Eigen::VectorXd& u);
 };
 
 
