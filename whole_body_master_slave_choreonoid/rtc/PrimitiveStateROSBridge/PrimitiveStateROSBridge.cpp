@@ -44,7 +44,7 @@ std::string URDFToVRMLLinkName(cnoid::BodyPtr robot_vrml, std::shared_ptr<urdf::
       return robot_vrml->rootLink()->name();
     }
   }
-  std::cerr << "\x1b[31m" << "failed to find link [" << URDFLinkName << "]" << "\x1b[39m" << std::endl;
+  std::cerr << "\x1b[31m" << "[URDFToVRMLLinkName] failed to find link [" << URDFLinkName << "]" << "\x1b[39m" << std::endl;
   return URDFLinkName;
 };
 
@@ -55,7 +55,7 @@ std::string VRMLToURDFLinkName(cnoid::BodyPtr robot_vrml, std::shared_ptr<urdf::
   }else if (robot_vrml->rootLink()->name() == VRMLLinkName){
     return robot_urdf->getRoot()->name;
   }
-  std::cerr << "\x1b[31m" << "failed to find link [" << VRMLLinkName << "]" << "\x1b[39m" << std::endl;
+  std::cerr << "\x1b[31m" << "[VRMLToURDFLinkName] failed to find link [" << VRMLLinkName << "]" << "\x1b[39m" << std::endl;
   return VRMLLinkName;
 };
 
@@ -70,7 +70,8 @@ RTC::ReturnCode_t PrimitiveStateROSBridge::onExecute(RTC::UniqueId ec_id){
     for(int i=0;i<m_primitiveCommandRTM_.data.length();i++){
       whole_body_master_slave_choreonoid::PrimitiveState state;
       state.name = std::string(m_primitiveCommandRTM_.data[i].name);
-      state.parent_link_name = VRMLToURDFLinkName(this->robot_vrml_, this->robot_urdf_, std::string(m_primitiveCommandRTM_.data[i].parentLinkName));
+      if(std::string(m_primitiveCommandRTM_.data[i].parentLinkName) == "com") state.parent_link_name = "com";
+      else state.parent_link_name = VRMLToURDFLinkName(this->robot_vrml_, this->robot_urdf_, std::string(m_primitiveCommandRTM_.data[i].parentLinkName));
       state.local_pose.position.x = m_primitiveCommandRTM_.data[i].localPose.position.x;
       state.local_pose.position.y = m_primitiveCommandRTM_.data[i].localPose.position.y;
       state.local_pose.position.z = m_primitiveCommandRTM_.data[i].localPose.position.z;
@@ -122,7 +123,8 @@ void PrimitiveStateROSBridge::topicCallback(const whole_body_master_slave_choreo
   m_primitiveCommandROS_.data.length(msg->primitive_state.size());
   for(int i=0;i<msg->primitive_state.size();i++){
     m_primitiveCommandROS_.data[i].name = msg->primitive_state[i].name.c_str();
-    m_primitiveCommandROS_.data[i].parentLinkName = URDFToVRMLLinkName(this->robot_vrml_, this->robot_urdf_, msg->primitive_state[i].parent_link_name).c_str();
+    if(msg->primitive_state[i].parent_link_name == "com") m_primitiveCommandROS_.data[i].parentLinkName = "com";
+    else m_primitiveCommandROS_.data[i].parentLinkName = URDFToVRMLLinkName(this->robot_vrml_, this->robot_urdf_, msg->primitive_state[i].parent_link_name).c_str();
     m_primitiveCommandROS_.data[i].localPose.position.x = msg->primitive_state[i].local_pose.position.x;
     m_primitiveCommandROS_.data[i].localPose.position.y = msg->primitive_state[i].local_pose.position.y;
     m_primitiveCommandROS_.data[i].localPose.position.z = msg->primitive_state[i].local_pose.position.z;

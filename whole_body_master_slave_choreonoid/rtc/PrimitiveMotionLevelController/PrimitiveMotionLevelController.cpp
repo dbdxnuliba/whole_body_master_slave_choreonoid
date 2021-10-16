@@ -112,6 +112,7 @@ void PrimitiveMotionLevelController::calcReferenceRobot(const std::string& insta
   robot->rootLink()->p()[2] = port.m_basePosRef_.data.z;
   robot->rootLink()->R() = cnoid::rotFromRpy(port.m_baseRpyRef_.data.r, port.m_baseRpyRef_.data.p, port.m_baseRpyRef_.data.y);
   robot->calcForwardKinematics();
+  robot->calcCenterOfMass();
 }
 
 void PrimitiveMotionLevelController::getPrimitiveCommand(const std::string& instance_name, const PrimitiveMotionLevelController::Ports& port, double dt, std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap) {
@@ -191,6 +192,7 @@ void PrimitiveMotionLevelController::passThrough(const std::string& instance_nam
   }
 
   robot_com->calcForwardKinematics();
+  robot_com->calcCenterOfMass();
 }
 
 void PrimitiveMotionLevelController::calcOutputPorts(const std::string& instance_name, PrimitiveMotionLevelController::Ports& port, double output_ratio, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_com, std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap) {
@@ -242,7 +244,10 @@ void PrimitiveMotionLevelController::calcOutputPorts(const std::string& instance
   port.m_primitiveCommandCom_.tm = port.m_qRef_.tm;
   for(int i=0;i<port.m_primitiveCommandCom_.data.length();i++){
     std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> primitiveCommand = primitiveCommandMap[std::string(port.m_primitiveCommandCom_.data[i].name)];
-    cnoid::Position pose = robot_com->link(primitiveCommand->parentLinkName())->T() * primitiveCommand->localPose();
+    cnoid::Position pose = cnoid::Position::Identity();
+    if(std::string(port.m_primitiveCommandCom_.data[i].name) == "com") pose.translation() = robot_com->centerOfMass();
+    else if (robot_com->link(primitiveCommand->parentLinkName())) pose = robot_com->link(primitiveCommand->parentLinkName())->T() * primitiveCommand->localPose();
+    else std::cerr << "\x1b[31m[" << instance_name << "] " << "failed to find link[" << port.m_primitiveCommandCom_.data[i].name << "]" << "\x1b[39m" << std::endl;
     port.m_primitiveCommandCom_.data[i].pose.position.x = pose.translation()[0];
     port.m_primitiveCommandCom_.data[i].pose.position.y = pose.translation()[1];
     port.m_primitiveCommandCom_.data[i].pose.position.z = pose.translation()[2];

@@ -4,7 +4,7 @@
 #   end_effectors:
 #     - name: <name>
 #       parent_link_name: <linkname for URDF>
-#       local_pose: [x, y, z, x, y, z, w]
+#       local_pose: [x, y, z, x, y, z, w] # default 0,0,0,0,0,0,1
 #       M: [x ,y, z, rx, ry, rz] # default 10, 10, 10, 5, 5, 5
 #       D: [x ,y, z, rx, ry, rz] # default 200, 200, 200, 100, 100, 100
 #       K: [x ,y, z, rx, ry, rz] # default 400, 400, 400, 200, 200, 200
@@ -44,14 +44,26 @@ class EndEffector:
 
         self.state = PrimitiveState()
         self.state.name = param["name"]
-        self.state.parent_link_name = param["parent_link_name"]
-        self.state.local_pose.position.x = param["local_pose"][0]
-        self.state.local_pose.position.y = param["local_pose"][1]
-        self.state.local_pose.position.z = param["local_pose"][2]
-        self.state.local_pose.orientation.x = param["local_pose"][3]
-        self.state.local_pose.orientation.y = param["local_pose"][4]
-        self.state.local_pose.orientation.z = param["local_pose"][5]
-        self.state.local_pose.orientation.w = param["local_pose"][6]
+        if self.state.name != "com":
+            self.state.parent_link_name = param["parent_link_name"]
+        else:
+            self.state.parent_link_name = "com"
+        if "local_pose" in param:
+            self.state.local_pose.position.x = param["local_pose"][0]
+            self.state.local_pose.position.y = param["local_pose"][1]
+            self.state.local_pose.position.z = param["local_pose"][2]
+            self.state.local_pose.orientation.x = param["local_pose"][3]
+            self.state.local_pose.orientation.y = param["local_pose"][4]
+            self.state.local_pose.orientation.z = param["local_pose"][5]
+            self.state.local_pose.orientation.w = param["local_pose"][6]
+        else:
+            self.state.local_pose.position.x = 0.0
+            self.state.local_pose.position.y = 0.0
+            self.state.local_pose.position.z = 0.0
+            self.state.local_pose.orientation.x = 0.0
+            self.state.local_pose.orientation.y = 0.0
+            self.state.local_pose.orientation.z = 0.0
+            self.state.local_pose.orientation.w = 1.0
         if "M" in param:
             self.state.M = param["M"]
         else:
