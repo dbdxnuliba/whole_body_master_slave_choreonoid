@@ -44,6 +44,7 @@ namespace PrimitiveMotionLevel {
       void getIKConstraintsforCOM(std::vector<std::shared_ptr<IK::IKConstraint> >& ikConstraints, const cnoid::BodyPtr& robot_com, double dt, double weight=1.0);
       const std::string& name() const { return name_;}
       const std::shared_ptr<const PrimitiveMotionLevel::PrimitiveCommand>& primitiveCommand() const {return primitiveCommand_;}
+      EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     protected:
       static void calcPositionConstraint(const cnoid::BodyPtr& robot_com,
                                          const std::shared_ptr<const PrimitiveMotionLevel::PrimitiveCommand>& primitiveCommand,

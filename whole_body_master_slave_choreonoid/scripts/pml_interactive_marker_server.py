@@ -30,6 +30,8 @@ from whole_body_master_slave_choreonoid.msg import PrimitiveState, PrimitiveStat
 from geometry_msgs.msg import Pose
 from std_srvs.srv import SetBool, SetBoolResponse
 
+tf_prefix = ""
+
 class EndEffector:
     server = None
     tfl = None
@@ -83,12 +85,12 @@ class EndEffector:
         if self.is_active:
             return True
         self.int_marker.description = self.int_marker.name;
-        self.int_marker.header.frame_id = "odom"
+        self.int_marker.header.frame_id = tf_prefix + "odom"
 
         try:
-            (trans,rot) = self.tfl.lookupTransform(self.int_marker.header.frame_id, self.state.parent_link_name, rospy.Time(0))
+            (trans,rot) = self.tfl.lookupTransform(self.int_marker.header.frame_id, tf_prefix + self.state.parent_link_name, rospy.Time(0))
         except (tf.LookupException, tf.ConnectivityException):
-            rospy.logerr("failed to lookup transform between "+self.int_marker.header.frame_id+" and "+self.state.parent_link_name)
+            rospy.logerr("failed to lookup transform between "+self.int_marker.header.frame_id+" and "+tf_prefix + self.state.parent_link_name)
         scale, shear, angles, translation, persp = tf.transformations.decompose_matrix(tf.transformations.compose_matrix(translate=trans,angles=tf.transformations.euler_from_quaternion(rot)).dot(tf.transformations.compose_matrix(translate=[self.state.local_pose.position.x,self.state.local_pose.position.y,self.state.local_pose.position.z],angles=tf.transformations.euler_from_quaternion([self.state.local_pose.orientation.x,self.state.local_pose.orientation.y,self.state.local_pose.orientation.z,self.state.local_pose.orientation.w]))))
         self.state.pose.position.x = translation[0]
         self.state.pose.position.y = translation[1]
@@ -153,6 +155,14 @@ if __name__ == "__main__":
 
     server = InteractiveMarkerServer("pml_interactive_marker_server")
     tfl = TransformListener()
+
+    if rospy.has_param("~tf_prefix"):
+        tf_prefix = rospy.get_param("~tf_prefix")
+        if tf_prefix is not "":
+            tf_prefix = "/" + tf_prefix + "/"
+    else:
+        tf_prefix = ""
+
 
     end_effectors = []
     if rospy.has_param("~end_effectors"):

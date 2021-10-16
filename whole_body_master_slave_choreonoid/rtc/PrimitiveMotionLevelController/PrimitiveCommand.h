@@ -22,6 +22,7 @@ namespace PrimitiveMotionLevel {
     const cnoid::Vector6& actWrench() const { return actWrench_;}
     const cnoid::Vector6& wrenchGain() const { return wrenchGain_;}
     const bool& supportCOM() const { return supportCOM_; }
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   protected:
     std::string name_;
     std::string parentLinkName_;
