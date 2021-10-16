@@ -70,6 +70,8 @@ RTC::ReturnCode_t PrimitiveMotionLevelController::onInitialize(){
     this->m_robot_com_->joint(i)->setJointVelocityRange(std::max(this->m_robot_ref_->joint(i)->dq_lower(), -1.0),
                                                         std::min(this->m_robot_ref_->joint(i)->dq_upper(), 1.0));
   }
+  this->m_robot_com_->rootLink()->setJointVelocityRange(std::max(this->m_robot_ref_->rootLink()->dq_lower(), -1.0),
+                                                        std::min(this->m_robot_ref_->rootLink()->dq_upper(), 1.0));
 
   std::string jointLimitTableStr;
   if(this->getProperties().hasKey("joint_limit_table")) jointLimitTableStr = std::string(this->getProperties()["joint_limit_table"]);

@@ -93,6 +93,8 @@ namespace PrimitiveMotionLevel {
     if(primitiveCommand->M().tail<3>().norm() == 0.0 &&
        primitiveCommand->D().tail<3>().norm() == 0.0 &&
        primitiveCommand->K().tail<3>().norm() == 0.0) positionConstraint->weight().tail<3>() << 0.0,0.0,0.0;
+
+    std::cerr << "offset " << offset.translation().transpose() << " target  " << primitiveCommand->targetPose().translation().transpose() << std::endl;
   }
 
   void PositionController::PositionTask::getIKConstraintsforCOM(std::vector<std::shared_ptr<IK::IKConstraint> >& ikConstraints, const cnoid::BodyPtr& robot_com, double dt, double weight) {
@@ -202,6 +204,18 @@ namespace PrimitiveMotionLevel {
         jointVelocityConstraintMap[robot_com->joint(i)] = jac;
       }
       std::shared_ptr<IK::JointVelocityConstraint>& jac = jointVelocityConstraintMap[robot_com->joint(i)];
+      jac->dt() = dt;
+      jointVelocityIKConstraints.push_back(jac);
+    }
+    if(robot_com->rootLink()->jointType() != cnoid::Link::FIXED_JOINT){
+      if(jointVelocityConstraintMap.find(robot_com->rootLink())==jointVelocityConstraintMap.end()){
+        std::shared_ptr<IK::JointVelocityConstraint> jac = std::make_shared<IK::JointVelocityConstraint>();
+        jac->joint() = robot_com->rootLink();
+        jac->maxError() = 0.1;
+        jac->weight() = weight;
+        jointVelocityConstraintMap[robot_com->rootLink()] = jac;
+      }
+      std::shared_ptr<IK::JointVelocityConstraint>& jac = jointVelocityConstraintMap[robot_com->rootLink()];
       jac->dt() = dt;
       jointVelocityIKConstraints.push_back(jac);
     }
