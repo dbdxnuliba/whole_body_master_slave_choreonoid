@@ -4,7 +4,7 @@
 - `qRef` (RTC::TimedDoubleSeq) [REQUIRED]
 - `basePosRef` (RTC::TimedPoint3D) [REQUIRED]
 - `baseRpyRef` (RTC::TimedOrientation3D) [REQUIRED]
-- `primitiveCommandRef` (whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq) [REQUIRED]
+- `primitiveCommandRef` (primitive_motion_level_msgs::TimedPrimitiveStateSeq) [REQUIRED]
 
 ## OutPort
 - `qCom` (RTC::TimedDoubleSeq)

@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   cpp_filters
   ik_constraint_joint_limit_table
   collision_checker_msgs
+  primitive_motion_level_msgs
   )
 find_package(choreonoid REQUIRED)
 find_package(OsqpEigen REQUIRED)

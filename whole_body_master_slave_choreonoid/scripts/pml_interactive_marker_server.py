@@ -21,7 +21,7 @@
 #       K: [x ,y, z, rx, ry, rz] # default 400, 400, 400, 200, 200, 200
 
 # publish
-#   ~command: whole_body_master_slave_choreonoid/PrimitiveStateArray
+#   ~command: primitive_motion_level_msgs/PrimitiveStateArray
 
 # server
 #   ~activate: std_srvs/SetBool
@@ -35,7 +35,7 @@ from interactive_markers.interactive_marker_server import InteractiveMarkerServe
 from interactive_markers.menu_handler import MenuHandler
 import tf
 from tf import TransformListener, transformations
-from whole_body_master_slave_choreonoid.msg import PrimitiveState, PrimitiveStateArray
+from primitive_motion_level_msgs.msg import PrimitiveState, PrimitiveStateArray
 from geometry_msgs.msg import Pose
 from std_srvs.srv import SetBool, SetBoolResponse
 

@@ -30,7 +30,7 @@ RTC::ReturnCode_t PrimitiveStateROSBridge::onInitialize(){
 
   ros::NodeHandle pnh("~");
   sub_ = pnh.subscribe("input", 1, &PrimitiveStateROSBridge::topicCallback, this);
-  pub_ = pnh.advertise<whole_body_master_slave_choreonoid::PrimitiveStateArray>("output", 1);
+  pub_ = pnh.advertise<primitive_motion_level_msgs::PrimitiveStateArray>("output", 1);
 
   return RTC::RTC_OK;
 }
@@ -65,10 +65,10 @@ RTC::ReturnCode_t PrimitiveStateROSBridge::onExecute(RTC::UniqueId ec_id){
   if(this->m_primitiveCommandRTMIn_.isNew()){
     this->m_primitiveCommandRTMIn_.read();
 
-    whole_body_master_slave_choreonoid::PrimitiveStateArray msg;
+    primitive_motion_level_msgs::PrimitiveStateArray msg;
     msg.header.stamp = ros::Time::now();
     for(int i=0;i<m_primitiveCommandRTM_.data.length();i++){
-      whole_body_master_slave_choreonoid::PrimitiveState state;
+      primitive_motion_level_msgs::PrimitiveState state;
       state.name = std::string(m_primitiveCommandRTM_.data[i].name);
       if(std::string(m_primitiveCommandRTM_.data[i].parentLinkName) == "com") state.parent_link_name = "com";
       else state.parent_link_name = VRMLToURDFLinkName(this->robot_vrml_, this->robot_urdf_, std::string(m_primitiveCommandRTM_.data[i].parentLinkName));
@@ -142,7 +142,7 @@ RTC::ReturnCode_t PrimitiveStateROSBridge::onExecute(RTC::UniqueId ec_id){
   return RTC::RTC_OK;
 }
 
-void PrimitiveStateROSBridge::topicCallback(const whole_body_master_slave_choreonoid::PrimitiveStateArray::ConstPtr& msg) {
+void PrimitiveStateROSBridge::topicCallback(const primitive_motion_level_msgs::PrimitiveStateArray::ConstPtr& msg) {
   coil::TimeValue coiltm(coil::gettimeofday());
   m_primitiveCommandROS_.tm.sec  = coiltm.sec();
   m_primitiveCommandROS_.tm.nsec = coiltm.usec() * 1000;

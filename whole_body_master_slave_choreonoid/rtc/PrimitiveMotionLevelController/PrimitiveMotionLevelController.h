@@ -23,7 +23,7 @@
 #include <joint_limit_table/JointLimitTable.h>
 
 #include <collision_checker_msgs/idl/Collision.hh>
-#include <whole_body_master_slave_choreonoid/idl/PrimitiveStateIdl.hh>
+#include <primitive_motion_level_msgs/idl/PrimitiveState.hh>
 #include "PrimitiveMotionLevelControllerService_impl.h"
 #include "PrimitiveCommand.h"
 #include "PositionController.h"
@@ -56,8 +56,8 @@ public:
     RTC::InPort<RTC::TimedPoint3D> m_basePosRefIn_;
     RTC::TimedOrientation3D m_baseRpyRef_;
     RTC::InPort<RTC::TimedOrientation3D> m_baseRpyRefIn_;
-    whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq m_primitiveCommandRef_;
-    RTC::InPort <whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq> m_primitiveCommandRefIn_;
+    primitive_motion_level_msgs::TimedPrimitiveStateSeq m_primitiveCommandRef_;
+    RTC::InPort <primitive_motion_level_msgs::TimedPrimitiveStateSeq> m_primitiveCommandRefIn_;
     collision_checker_msgs::TimedCollisionSeq m_collisionCom_;
     RTC::InPort <collision_checker_msgs::TimedCollisionSeq> m_collisionComIn_;
 
@@ -71,8 +71,8 @@ public:
     RTC::OutPort<RTC::TimedPose3D> m_basePoseComOut_;
     RTC::TimedDoubleSeq m_baseTformCom_; // for HrpsysSeqStateROSBridge
     RTC::OutPort<RTC::TimedDoubleSeq> m_baseTformComOut_; // for HrpsysSeqStateROSBridge
-    whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq m_primitiveCommandCom_;
-    RTC::OutPort <whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq> m_primitiveCommandComOut_;
+    primitive_motion_level_msgs::TimedPrimitiveStateSeq m_primitiveCommandCom_;
+    RTC::OutPort <primitive_motion_level_msgs::TimedPrimitiveStateSeq> m_primitiveCommandComOut_;
 
     PrimitiveMotionLevelControllerService_impl m_service0_;
     RTC::CorbaPort m_PrimitiveMotionLevelControllerServicePort_;

@@ -133,7 +133,7 @@ void PrimitiveMotionLevelController::getPrimitiveCommand(const std::string& inst
   }
   // 各指令値の反映
   for(size_t i=0;i<port.m_primitiveCommandRef_.data.length();i++){
-    const whole_body_master_slave_choreonoid::PrimitiveStateIdl& idl = port.m_primitiveCommandRef_.data[i];
+    const primitive_motion_level_msgs::PrimitiveStateIdl& idl = port.m_primitiveCommandRef_.data[i];
     std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> state = primitiveCommandMap[std::string(idl.name)];
     state->updateFromIdl(idl);
     state->updateTargetForOneStep(dt);

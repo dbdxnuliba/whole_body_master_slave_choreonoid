@@ -8,6 +8,7 @@ add_definitions(-Wno-deprecated)
 find_package(catkin REQUIRED COMPONENTS
   rtmbuild
   cpp_filters
+  primitive_motion_level_msgs
   )
 find_package(choreonoid REQUIRED)
 

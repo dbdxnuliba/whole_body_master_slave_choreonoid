@@ -10,7 +10,8 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   geometry_msgs
   tf2
-  urdf)
+  urdf
+  primitive_motion_level_msgs)
 find_package(choreonoid REQUIRED)
 
 # 相対パスを絶対パスに直す

@@ -2,14 +2,14 @@
 #define CFRController_PrimitiveCommand_H
 
 #include <cnoid/Body>
-#include <whole_body_master_slave_choreonoid/idl/PrimitiveStateIdl.hh>
+#include <primitive_motion_level_msgs/idl/PrimitiveState.hh>
 #include <cpp_filters/TwoPointInterpolator.h>
 
 namespace CFR {
   class PrimitiveCommand {
   public:
     PrimitiveCommand(const std::string& name);
-    void updateFromIdl(const whole_body_master_slave_choreonoid::PrimitiveStateIdl& idl);
+    void updateFromIdl(const primitive_motion_level_msgs::PrimitiveStateIdl& idl);
     void updateTargetForOneStep(double dt);
     const std::string& name() const { return name_;}
     const std::string& parentLinkName() const { return parentLinkName_;}

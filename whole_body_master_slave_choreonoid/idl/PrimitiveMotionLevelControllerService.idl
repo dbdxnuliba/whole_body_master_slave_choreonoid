@@ -2,7 +2,6 @@
  * @file PrimitiveMotionLevelControllerService.idl
  * @brief Services for the PrimitiveMotionLevelController interface
  */
-#include "PrimitiveStateIdl.idl"
 #include "ExtendedDataTypes.idl" // openrtm
 module whole_body_master_slave_choreonoid
 {

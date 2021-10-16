@@ -16,7 +16,7 @@
 #include <rtm/idl/ExtendedDataTypesSkel.h>
 #include <rtm/CorbaNaming.h>
 
-#include <whole_body_master_slave_choreonoid/idl/PrimitiveStateIdl.hh>
+#include <primitive_motion_level_msgs/idl/PrimitiveState.hh>
 #include "CFRControllerService_impl.h"
 #include "PrimitiveCommand.h"
 
@@ -32,11 +32,11 @@ public:
       m_CFRControllerServicePort_("CFRControllerService") {
     }
 
-    whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq m_primitiveCommandRef_;
-    RTC::InPort <whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq> m_primitiveCommandRefIn_;
+    primitive_motion_level_msgs::TimedPrimitiveStateSeq m_primitiveCommandRef_;
+    RTC::InPort <primitive_motion_level_msgs::TimedPrimitiveStateSeq> m_primitiveCommandRefIn_;
 
-    whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq m_primitiveCommandCom_;
-    RTC::OutPort <whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq> m_primitiveCommandComOut_;
+    primitive_motion_level_msgs::TimedPrimitiveStateSeq m_primitiveCommandCom_;
+    RTC::OutPort <primitive_motion_level_msgs::TimedPrimitiveStateSeq> m_primitiveCommandComOut_;
 
     CFRControllerService_impl m_service0_;
     RTC::CorbaPort m_CFRControllerServicePort_;

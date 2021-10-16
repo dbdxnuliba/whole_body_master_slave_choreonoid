@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>primitive_motion_level_msgs</name>
+  <version>0.0.0</version>
+  <description>The primitive_motion_level_msgs package</description>
+
+  <maintainer email="hiraoka@jsk.imi.i.u-tokyo.ac.jp">Naoki-Hiraoka</maintainer>
+
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>roscpp</depend>
+  <depend>rtmbuild</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>message_generation</depend>
+  <depend>message_runtime</depend>
+
+</package>

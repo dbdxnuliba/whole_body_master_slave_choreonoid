@@ -1,6 +1,6 @@
 #include "ExtendedDataTypes.idl" // openrtm
 
-module whole_body_master_slave_choreonoid
+module primitive_motion_level_msgs
 {
   typedef double DblSequence6[6];
   typedef sequence<double> DblSequence;
@@ -38,7 +38,7 @@ module whole_body_master_slave_choreonoid
     boolean supportCOM;
   };
 
-  struct TimedPrimitiveStateIdlSeq
+  struct TimedPrimitiveStateSeq
   {
     RTC::Time tm;
     sequence<PrimitiveStateIdl> data;

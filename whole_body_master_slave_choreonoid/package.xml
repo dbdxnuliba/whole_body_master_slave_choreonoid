@@ -23,5 +23,6 @@
   <depend>cpp_filters</depend>
   <depend>ik_constraint_joint_limit_table</depend>
   <depend>collision_checker_msgs</depend>
+  <depend>primitive_motion_level_msgs</depend>
 
 </package>

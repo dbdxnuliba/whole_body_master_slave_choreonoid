@@ -6,10 +6,10 @@
 #include <rtm/DataOutPort.h>
 #include <rtm/DataInPort.h>
 
-#include <whole_body_master_slave_choreonoid/idl/PrimitiveStateIdl.hh>
+#include <primitive_motion_level_msgs/idl/PrimitiveState.hh>
 
 #include <ros/ros.h>
-#include <whole_body_master_slave_choreonoid/PrimitiveStateArray.h>
+#include <primitive_motion_level_msgs/PrimitiveStateArray.h>
 
 #include <urdf/model.h>
 #include <cnoid/Body>
@@ -19,19 +19,19 @@ protected:
   std::shared_ptr<urdf::Model> robot_urdf_;
   cnoid::BodyPtr robot_vrml_;
 
-  whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq m_primitiveCommandRTM_;
-  RTC::InPort <whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq> m_primitiveCommandRTMIn_;
+  primitive_motion_level_msgs::TimedPrimitiveStateSeq m_primitiveCommandRTM_;
+  RTC::InPort <primitive_motion_level_msgs::TimedPrimitiveStateSeq> m_primitiveCommandRTMIn_;
   ros::Publisher pub_;
 
   ros::Subscriber sub_;
-  whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq m_primitiveCommandROS_;
-  RTC::OutPort <whole_body_master_slave_choreonoid::TimedPrimitiveStateIdlSeq> m_primitiveCommandROSOut_;
+  primitive_motion_level_msgs::TimedPrimitiveStateSeq m_primitiveCommandROS_;
+  RTC::OutPort <primitive_motion_level_msgs::TimedPrimitiveStateSeq> m_primitiveCommandROSOut_;
 public:
   PrimitiveStateROSBridge(RTC::Manager* manager);
   virtual RTC::ReturnCode_t onInitialize();
   virtual RTC::ReturnCode_t onExecute(RTC::UniqueId ec_id);
 
-  void topicCallback(const whole_body_master_slave_choreonoid::PrimitiveStateArray::ConstPtr& msg);
+  void topicCallback(const primitive_motion_level_msgs::PrimitiveStateArray::ConstPtr& msg);
 };
 
 
