@@ -192,6 +192,7 @@ class EndEffector:
 
         self.server.insert(self.int_marker, self.processFeedback)
 
+        self.menu_handler = MenuHandler()
         entry = self.menu_handler.insert( "Support COM", callback=self.supportCOMCb )
         if self.state.support_com:
             self.menu_handler.setCheckState( entry, MenuHandler.CHECKED )
@@ -261,14 +262,17 @@ if __name__ == "__main__":
         return SetBoolResponse(True, "")
     s = rospy.Service('~activate', SetBool, handle_activate)
 
-    r = rospy.Rate(20)
-    while not rospy.is_shutdown():
-        if is_active:
-            msg = PrimitiveStateArray()
-            for end_effector in end_effectors:
-                msg.primitive_state.append(end_effector.state)
-            pub.publish(msg)
-        r.sleep()
+    try:
+        r = rospy.Rate(20)
+        while not rospy.is_shutdown():
+            if is_active:
+                msg = PrimitiveStateArray()
+                for end_effector in end_effectors:
+                    msg.primitive_state.append(end_effector.state)
+                pub.publish(msg)
+            r.sleep()
+    except rospy.ROSInterruptException:
+        pass
 
 
 

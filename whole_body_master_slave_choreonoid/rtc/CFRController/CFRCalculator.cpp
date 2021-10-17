@@ -92,8 +92,9 @@ namespace CFR {
       Eigen::SparseMatrix<double,Eigen::RowMajor> G;
       Eigen::VectorXd h = Eigen::VectorXd::Zero(6);
       {
-        std::vector<Eigen::SparseMatrix<double,Eigen::ColMajor> > Gs;
+        h[2] = robot->mass()*9.80665;
 
+        std::vector<Eigen::SparseMatrix<double,Eigen::ColMajor> > Gs;
         {
           Eigen::SparseMatrix<double,Eigen::ColMajor> G01(6,2);
           G01.insert(3,1) = -robot->mass()*9.80665;
@@ -191,13 +192,27 @@ namespace CFR {
     }
 
     // SCFRの各要素はx[0:1]の次元の大きさに揃っている
-    if(!static_equilibuim_test::calcProjection(A,b,C,dl,du,this->M_,this->l_,this->u_,this->vertices_,debugLevel, 0.01)){
-      std::cerr << "[CFRCalculator::computeCFR] projection failed" << std::endl;
-      this->M_.resize(0,2);
-      this->l_.resize(0);
-      this->u_.resize(0);
-      this->vertices_.clear();
-      return false;
+    if(!static_equilibuim_test::calcProjection(A,b,C,dl,du,this->M_,this->l_,this->u_,this->vertices_,debugLevel, 0.01,30,true)){
+      // // 45度傾けて再度やる
+      // Eigen::SparseMatrix<double,Eigen::ColMajor> A_rotated = A;
+      // Eigen::SparseMatrix<double,Eigen::ColMajor> C_rotated = C;
+      // Eigen::SparseMatrix<double,Eigen::ColMajor> R(2,2);
+      // R.insert(0,0) = 1.0 / sqrt(2.0);
+      // R.insert(0,1) = 1.0 / sqrt(2.0);
+      // R.insert(1,0) = -1.0 / sqrt(2.0);
+      // R.insert(1,1) = 1.0 / sqrt(2.0);
+      // A_rotated.leftCols<2>() = (A_rotated.leftCols<2>() * R).eval();
+      // C_rotated.leftCols<2>() = (C_rotated.leftCols<2>() * R).eval();
+      // if(!static_equilibuim_test::calcProjection(A_rotated,b,C_rotated,dl,du,this->M_,this->l_,this->u_,this->vertices_,debugLevel, 0.01,30,false)){
+        std::cerr << "[CFRCalculator::computeCFR] projection failed" << std::endl;
+        this->M_.resize(0,2);
+        this->l_.resize(0);
+        this->u_.resize(0);
+        this->vertices_.clear();
+        return false;
+      // }
+      // this->M_ = (this->M_ * R.transpose()).eval();
+      // for(int i=0;i<this->vertices_.size();i++) this->vertices_[i] = (this->vertices_[i] * R.transpose()).eval();
     }
 
     return true;
