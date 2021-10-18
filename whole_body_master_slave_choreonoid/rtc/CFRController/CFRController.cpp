@@ -145,8 +145,6 @@ void CFRController::calcOutputPorts(const std::string& instance_name,
     port.m_primitiveCommandCom_.data[comIdx].pose.orientation.r=0.0;
     port.m_primitiveCommandCom_.data[comIdx].pose.orientation.p=0.0;
     port.m_primitiveCommandCom_.data[comIdx].pose.orientation.y=0.0;
-    port.m_primitiveCommandCom_.data[comIdx].followPose = false;
-    port.m_primitiveCommandCom_.data[comIdx].followWrench = false;
     port.m_primitiveCommandCom_.data[comIdx].supportCOM = false;
   }
   cnoid::Position comPose;

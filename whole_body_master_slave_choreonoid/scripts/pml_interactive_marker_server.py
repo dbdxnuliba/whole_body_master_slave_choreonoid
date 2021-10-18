@@ -5,14 +5,14 @@
 #     - name: <name>
 #       parent_link_name: <linkname for URDF>
 #       local_pose: [x, y, z, x, y, z, w] # default 0,0,0,0,0,0,1
-#       wrenchC: [?, ?, ?, ?, ?, ?,
-#                 ?, ?, ?, ?, ?, ? ...] # default []
-#       wrenchld: [?,
-#                  ? ...] # default []
-#       wrenchud: [?,
-#                  ? ...] # default []
-#       follow_pose: <bool> # default true
-#       follow_wrench: <bool> # default false
+#       wrenchC: [<double>, <double>, <double>, <double>, <double>, <double>,
+#                 <double>, <double>, <double>, <double>, <double>, <double> ...] # default []
+#       wrenchld: [<double>,
+#                  <double> ...] # default []
+#       wrenchud: [<double>,
+#                  <double> ...] # default []
+#       pose_follow_gain: [<double>, <double>, <double>, <double>, <double>, <double>] # default 1.0
+#       wrench_follow_gain: [<double>, <double>, <double>, <double>, <double>, <double>] # default 0.0
 #       support_com: <bool> #default false
 #       time: <double> # default 0.1
 #       wrench_gain: [x ,y, z, rx, ry, rz] # default 0
@@ -95,14 +95,14 @@ class EndEffector:
             self.state.wrenchud = map(lambda x: float(x), param["wrenchud"])
         else:
             self.state.wrenchud = []
-        if "follow_pose" in param:
-            self.state.follow_pose = param["follow_pose"]
+        if "pose_follow_gain" in param:
+            self.state.pose_follow_gain = param["pose_follow_gain"]
         else:
-            self.state.follow_pose = True
-        if "follow_wrench" in param:
-            self.state.follow_wrench = param["follow_wrench"]
+            self.state.pose_follow_gain = [1.0]*6
+        if "wrench_follow_gain" in param:
+            self.state.wrench_follow_gain = param["wrench_follow_gain"]
         else:
-            self.state.follow_wrench = False
+            self.state.wrench_follow_gain = [0.0]*6
         if "M" in param:
             self.state.M = map(lambda x: float(x), param["M"])
         else:
@@ -115,10 +115,6 @@ class EndEffector:
             self.state.K = map(lambda x: float(x), param["K"])
         else:
             self.state.K = [400.0, 400.0, 400.0, 200.0, 200.0, 200.0]
-        if "wrench_gain" in param:
-            self.state.wrench_gain = map(lambda x: float(x), param["wrench_gain"])
-        else:
-            self.state.wrench_gain = [0.0] * 6
 
         self.int_marker = InteractiveMarker()
         self.int_marker.name = self.state.name

@@ -17,6 +17,8 @@ namespace CFR {
     const cnoid::Position& localPose() const { return localPose_;}
     const cnoid::Position& targetPose() const { return targetPose_;}
     const cnoid::Vector6& targetWrench() const { return targetWrench_;}
+    const cnoid::Vector6& poseFollowGain() const { return poseFollowGain_;}
+    const cnoid::Vector6& wrenchFollowGain() const { return wrenchFollowGain_;}
     const Eigen::SparseMatrix<double,Eigen::RowMajor>& wrenchC() const { return wrenchC_;}
     const cnoid::VectorX& wrenchld() const { return wrenchld_;}
     const cnoid::VectorX& wrenchud() const { return wrenchud_;}
@@ -24,7 +26,6 @@ namespace CFR {
     const cnoid::Vector6& D() const { return D_;}
     const cnoid::Vector6& K() const { return K_;}
     const cnoid::Vector6& actWrench() const { return actWrench_;}
-    const cnoid::Vector6& wrenchGain() const { return wrenchGain_;}
     const bool& supportCOM() const { return supportCOM_; }
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   protected:
@@ -40,6 +41,9 @@ namespace CFR {
     cnoid::Vector6 targetWrench_; //world frame
     cpp_filters::TwoPointInterpolator<cnoid::Vector6> targetWrenchInterpolator_; //world frame
 
+    cnoid::Vector6 poseFollowGain_; // local frame
+    cnoid::Vector6 wrenchFollowGain_; // local frame
+
     Eigen::SparseMatrix<double,Eigen::RowMajor> wrenchC_;
     cnoid::VectorX wrenchld_;
     cnoid::VectorX wrenchud_;
@@ -47,7 +51,6 @@ namespace CFR {
     cnoid::Vector6 M_, D_, K_;// local frame
 
     cnoid::Vector6 actWrench_; // local frame // Position control only
-    cnoid::Vector6 wrenchGain_; // local frame // Position control only
 
     bool supportCOM_;
 

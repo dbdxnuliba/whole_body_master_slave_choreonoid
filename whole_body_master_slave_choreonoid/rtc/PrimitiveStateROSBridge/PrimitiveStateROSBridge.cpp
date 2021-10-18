@@ -96,6 +96,10 @@ RTC::ReturnCode_t PrimitiveStateROSBridge::onExecute(RTC::UniqueId ec_id){
       state.pose.orientation.w = quat.w();
       state.wrench.resize(6);
       for(int j=0;j<6;j++) state.wrench[j] = m_primitiveCommandRTM_.data[i].wrench[j];
+      state.pose_follow_gain.resize(6);
+      for(int j=0;j<6;j++) state.pose_follow_gain[j] = m_primitiveCommandRTM_.data[i].poseFollowGain[j];
+      state.wrench_follow_gain.resize(6);
+      for(int j=0;j<6;j++) state.wrench_follow_gain[j] = m_primitiveCommandRTM_.data[i].wrenchFollowGain[j];
       state.poseC.resize(m_primitiveCommandRTM_.data[i].poseC.length()*6);
       for(int j=0;j<m_primitiveCommandRTM_.data[i].poseC.length();j++){
         for(int k=0;k<6;k++) state.poseC[j*6+k] = m_primitiveCommandRTM_.data[i].poseC[j][k];
@@ -120,8 +124,6 @@ RTC::ReturnCode_t PrimitiveStateROSBridge::onExecute(RTC::UniqueId ec_id){
       for(int j=0;j<m_primitiveCommandRTM_.data[i].wrenchud.length();j++){
         state.wrenchud[j] = m_primitiveCommandRTM_.data[i].wrenchud[j];
       }
-      state.follow_pose = m_primitiveCommandRTM_.data[i].followPose;
-      state.follow_wrench = m_primitiveCommandRTM_.data[i].followWrench;
       state.M.resize(6);
       for(int j=0;j<6;j++) state.M[j] = m_primitiveCommandRTM_.data[i].M[j];
       state.D.resize(6);
@@ -130,8 +132,6 @@ RTC::ReturnCode_t PrimitiveStateROSBridge::onExecute(RTC::UniqueId ec_id){
       for(int j=0;j<6;j++) state.K[j] = m_primitiveCommandRTM_.data[i].K[j];
       state.act_wrench.resize(6);
       for(int j=0;j<6;j++) state.act_wrench[j] = m_primitiveCommandRTM_.data[i].actWrench[j];
-      state.wrench_gain.resize(6);
-      for(int j=0;j<6;j++) state.wrench_gain[j] = m_primitiveCommandRTM_.data[i].wrenchGain[j];
       state.support_com = m_primitiveCommandRTM_.data[i].supportCOM;
 
       msg.primitive_state.push_back(state);
@@ -167,6 +167,16 @@ void PrimitiveStateROSBridge::topicCallback(const primitive_motion_level_msgs::P
     }else{
       for(int j=0;j<msg->primitive_state[i].wrench.size();j++) m_primitiveCommandROS_.data[i].wrench[j] = 0.0;
     }
+    if(msg->primitive_state[i].pose_follow_gain.size() == 6) {
+      for(int j=0;j<msg->primitive_state[i].pose_follow_gain.size();j++) m_primitiveCommandROS_.data[i].poseFollowGain[j] = msg->primitive_state[i].pose_follow_gain[j];
+    }else{
+      for(int j=0;j<msg->primitive_state[i].pose_follow_gain.size();j++) m_primitiveCommandROS_.data[i].poseFollowGain[j] = 0.0;
+    }
+    if(msg->primitive_state[i].wrench_follow_gain.size() == 6) {
+      for(int j=0;j<msg->primitive_state[i].wrench_follow_gain.size();j++) m_primitiveCommandROS_.data[i].wrenchFollowGain[j] = msg->primitive_state[i].wrench_follow_gain[j];
+    }else{
+      for(int j=0;j<msg->primitive_state[i].wrench_follow_gain.size();j++) m_primitiveCommandROS_.data[i].wrenchFollowGain[j] = 0.0;
+    }
     if(msg->primitive_state[i].poseC.size() % 6 == 0){
       m_primitiveCommandROS_.data[i].poseC.length(msg->primitive_state[i].poseC.size() / 6);
       for(int j=0;j<m_primitiveCommandROS_.data[i].poseC.length(); j++) {
@@ -199,8 +209,6 @@ void PrimitiveStateROSBridge::topicCallback(const primitive_motion_level_msgs::P
     for(int j=0;j<m_primitiveCommandROS_.data[i].wrenchud.length(); j++) {
         m_primitiveCommandROS_.data[i].wrenchud[j] = msg->primitive_state[i].wrenchud[j];
     }
-    m_primitiveCommandROS_.data[i].followPose = msg->primitive_state[i].follow_pose;
-    m_primitiveCommandROS_.data[i].followWrench = msg->primitive_state[i].follow_wrench;
     if(msg->primitive_state[i].M.size() == 6) {
       for(int j=0;j<msg->primitive_state[i].M.size();j++) m_primitiveCommandROS_.data[i].M[j] = msg->primitive_state[i].M[j];
     }else{
@@ -220,11 +228,6 @@ void PrimitiveStateROSBridge::topicCallback(const primitive_motion_level_msgs::P
       for(int j=0;j<msg->primitive_state[i].act_wrench.size();j++) m_primitiveCommandROS_.data[i].actWrench[j] = msg->primitive_state[i].act_wrench[j];
     }else{
       for(int j=0;j<msg->primitive_state[i].act_wrench.size();j++) m_primitiveCommandROS_.data[i].actWrench[j] = 0.0;
-    }
-    if(msg->primitive_state[i].wrench_gain.size() == 6) {
-      for(int j=0;j<msg->primitive_state[i].wrench_gain.size();j++) m_primitiveCommandROS_.data[i].wrenchGain[j] = msg->primitive_state[i].wrench_gain[j];
-    }else{
-      for(int j=0;j<msg->primitive_state[i].wrench_gain.size();j++) m_primitiveCommandROS_.data[i].wrenchGain[j] = 0.0;
     }
     m_primitiveCommandROS_.data[i].supportCOM = msg->primitive_state[i].support_com;
   }

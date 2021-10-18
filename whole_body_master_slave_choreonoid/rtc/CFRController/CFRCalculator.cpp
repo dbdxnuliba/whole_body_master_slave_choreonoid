@@ -77,6 +77,8 @@ namespace CFR {
       }
     }
 
+    if(supportEEFs.size() ==0) return false;
+
     Eigen::SparseMatrix<double,Eigen::RowMajor> A;
     Eigen::VectorXd b;
     Eigen::SparseMatrix<double,Eigen::RowMajor> C;
@@ -192,7 +194,7 @@ namespace CFR {
     }
 
     // SCFRの各要素はx[0:1]の次元の大きさに揃っている
-    if(!static_equilibuim_test::calcProjection(A,b,C,dl,du,this->M_,this->l_,this->u_,this->vertices_,debugLevel, 0.01,30,true)){
+    if(!static_equilibuim_test::calcProjection(A,b,C,dl,du,this->M_,this->l_,this->u_,this->vertices_,debugLevel, 0.001,30,true)){
       // // 45度傾けて再度やる
       // Eigen::SparseMatrix<double,Eigen::ColMajor> A_rotated = A;
       // Eigen::SparseMatrix<double,Eigen::ColMajor> C_rotated = C;

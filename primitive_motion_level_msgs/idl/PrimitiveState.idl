@@ -16,6 +16,8 @@ module primitive_motion_level_msgs
     double time; // interpolation time
     RTC::Pose3D pose;
     DblSequence6 wrench;
+    DblSequence6 poseFollowGain;// pose local frame
+    DblSequence6 wrenchFollowGain;// pose local frame
 
     // local frame
     DblSequence6Sequence poseC; //pose の error の制約
@@ -24,12 +26,9 @@ module primitive_motion_level_msgs
     DblSequence6Sequence wrenchC; //wrench の制約
     DblSequence wrenchld;
     DblSequence wrenchud;
-    boolean followPose; // pose に追従するか
-    boolean followWrench; // wrench に追従するか
 
     // local frame
     DblSequence6 actWrench; // Position control only
-    DblSequence6 wrenchGain; // Position control only
     DblSequence6 M;
     DblSequence6 D;
     DblSequence6 K;

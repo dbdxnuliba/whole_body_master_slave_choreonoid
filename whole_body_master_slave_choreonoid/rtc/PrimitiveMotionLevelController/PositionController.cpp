@@ -38,7 +38,7 @@ namespace PrimitiveMotionLevel {
       }
 
       dOffsetLocal[i] =
-        ((this->primitiveCommand_->actWrench()[i] - targetWrenchLocal[i]) * this->primitiveCommand_->wrenchGain()[i] * dt * dt
+        ((this->primitiveCommand_->actWrench()[i] - targetWrenchLocal[i]) * this->primitiveCommand_->wrenchFollowGain()[i] * dt * dt
          - this->primitiveCommand_->K()[i] * offsetPrevLocal[i] * dt * dt
          + this->primitiveCommand_->M()[i] * dOffsetPrevLocal[i]*dt)
         / (this->primitiveCommand_->M()[i] + this->primitiveCommand_->D()[i] * dt + this->primitiveCommand_->K()[i] * dt * dt);
@@ -85,14 +85,11 @@ namespace PrimitiveMotionLevel {
     positionConstraint->B_localpos().linear() = offset.linear() * primitiveCommand->targetPose().linear();
     positionConstraint->maxError() << 10.0*dt, 10.0*dt, 10.0*dt, 10.0*dt, 10.0*dt, 10.0*dt;
     positionConstraint->precision() << 1e-4, 1e-4, 1e-4, 0.001745, 0.001745, 0.001745;
-    positionConstraint->weight() << 1.0,1.0,1.0,1.0,1.0,1.0;
+    positionConstraint->weight() = primitiveCommand->poseFollowGain();
     positionConstraint->weight() *= weight;
-    if(primitiveCommand->M().head<3>().norm() == 0.0 &&
-       primitiveCommand->D().head<3>().norm() == 0.0 &&
-       primitiveCommand->K().head<3>().norm() == 0.0) positionConstraint->weight().head<3>() << 0.0,0.0,0.0;
-    if(primitiveCommand->M().tail<3>().norm() == 0.0 &&
-       primitiveCommand->D().tail<3>().norm() == 0.0 &&
-       primitiveCommand->K().tail<3>().norm() == 0.0) positionConstraint->weight().tail<3>() << 0.0,0.0,0.0;
+    positionConstraint->eval_link() = nullptr;
+    positionConstraint->eval_localR() = positionConstraint->B_localpos().linear();
+
 
     std::cerr << "offset " << offset.translation().transpose() << " target  " << primitiveCommand->targetPose().translation().transpose() << std::endl;
   }
@@ -113,8 +110,9 @@ namespace PrimitiveMotionLevel {
     comConstraint->targetPos() = primitiveCommand->targetPose().translation();
     comConstraint->maxError() << 10.0*dt, 10.0*dt, 10.0*dt;
     comConstraint->precision() << 1e-4, 1e-4, 1e-4;
-    comConstraint->weight() << 1.0,1.0,1.0;
+    comConstraint->weight() = primitiveCommand->poseFollowGain().head<3>();
     comConstraint->weight() *= weight;
+    comConstraint->eval_R() = primitiveCommand->targetPose().linear();
   }
 
   void PositionController::reset() {

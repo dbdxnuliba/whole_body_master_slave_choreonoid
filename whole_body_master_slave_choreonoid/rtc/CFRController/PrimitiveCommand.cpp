@@ -16,6 +16,8 @@ namespace CFR {
     targetOrientationInterpolator_(cnoid::Matrix3::Identity(),cnoid::Vector3::Zero(),cnoid::Vector3::Zero(),cpp_filters::HOFFARBIB),
     targetWrench_(cnoid::Vector6::Zero()),
     targetWrenchInterpolator_(cnoid::Vector6::Zero(),cnoid::Vector6::Zero(),cnoid::Vector6::Zero(),cpp_filters::HOFFARBIB),
+    poseFollowGain_(cnoid::Vector6::Zero()),
+    wrenchFollowGain_(cnoid::Vector6::Zero()),
     wrenchC_(0,6),
     wrenchld_(0),
     wrenchud_(0),
@@ -23,7 +25,6 @@ namespace CFR {
     D_(cnoid::Vector6::Zero()),
     K_(cnoid::Vector6::Zero()),
     actWrench_(cnoid::Vector6::Zero()),
-    wrenchGain_(cnoid::Vector6::Zero()),
     supportCOM_(false),
     isInitial_(true)
   {
@@ -54,6 +55,8 @@ namespace CFR {
     }else{
       this->targetWrenchInterpolator_.reset(wrench);
     }
+    for(size_t i=0;i<6;i++) this->poseFollowGain_[i] = idl.poseFollowGain[i];
+    for(size_t i=0;i<6;i++) this->wrenchFollowGain_[i] = idl.wrenchFollowGain[i];
     this->wrenchC_ = Eigen::SparseMatrix<double,Eigen::RowMajor>(idl.wrenchC.length(),6);
     for(size_t i=0;i<idl.wrenchC.length();i++)
       for(size_t j=0;j<6;j++)
@@ -73,7 +76,6 @@ namespace CFR {
     for(size_t i=0;i<6;i++) this->D_[i] = idl.D[i];
     for(size_t i=0;i<6;i++) this->K_[i] = idl.K[i];
     for(size_t i=0;i<6;i++) this->actWrench_[i] = idl.actWrench[i];
-    for(size_t i=0;i<6;i++) this->wrenchGain_[i] = idl.wrenchGain[i];
     this->supportCOM_ = idl.supportCOM;
 
     this->isInitial_ = false;
