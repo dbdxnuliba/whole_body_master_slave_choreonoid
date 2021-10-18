@@ -19,10 +19,12 @@ module primitive_motion_level_msgs
     DblSequence6 poseFollowGain;// pose local frame
     DblSequence6 wrenchFollowGain;// pose local frame
 
-    // local frame
+    // local frame (if isGlobal=false). world frame (if isGlobal=true).
+    boolean isPoseCGlobal;
     DblSequence6Sequence poseC; //pose の error の制約
     DblSequence poseld;
     DblSequence  poseud;
+    boolean isWrenchCGlobal;
     DblSequence6Sequence wrenchC; //wrench の制約
     DblSequence wrenchld;
     DblSequence wrenchud;

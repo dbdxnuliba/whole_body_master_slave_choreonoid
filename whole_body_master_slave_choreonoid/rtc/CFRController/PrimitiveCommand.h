@@ -19,6 +19,7 @@ namespace CFR {
     const cnoid::Vector6& targetWrench() const { return targetWrench_;}
     const cnoid::Vector6& poseFollowGain() const { return poseFollowGain_;}
     const cnoid::Vector6& wrenchFollowGain() const { return wrenchFollowGain_;}
+    const bool& isWrenchCGlobal() const { return isWrenchCGlobal_; }
     const Eigen::SparseMatrix<double,Eigen::RowMajor>& wrenchC() const { return wrenchC_;}
     const cnoid::VectorX& wrenchld() const { return wrenchld_;}
     const cnoid::VectorX& wrenchud() const { return wrenchud_;}
@@ -44,6 +45,7 @@ namespace CFR {
     cnoid::Vector6 poseFollowGain_; // local frame
     cnoid::Vector6 wrenchFollowGain_; // local frame
 
+    bool isWrenchCGlobal_;
     Eigen::SparseMatrix<double,Eigen::RowMajor> wrenchC_;
     cnoid::VectorX wrenchld_;
     cnoid::VectorX wrenchud_;

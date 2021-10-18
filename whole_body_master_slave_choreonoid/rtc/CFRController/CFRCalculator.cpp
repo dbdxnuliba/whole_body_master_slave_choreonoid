@@ -87,7 +87,8 @@ namespace CFR {
     {
       // compute A, b, C, dl, du
       // x = [dpx dpy dw1 dw2 ...]^T
-      // wはエンドエフェクタ座標系．エンドエフェクタまわり. サイズは6
+      // wはエンドエフェクタ座標系．エンドエフェクタまわり. (isWrenchCGlobal=false)サイズは6
+      // wはworld座標系．world原点まわり. (isWrenchCGlobal=true)サイズは6
 
       // Grasp Matrix Gx = h
       // 原点まわりのつりあい. 座標軸はworld系の向き
@@ -107,7 +108,7 @@ namespace CFR {
         for(size_t i=0;i<supportEEFs.size();i++){
           Eigen::SparseMatrix<double,Eigen::ColMajor> GraspMatrix(6,6);
           {
-            const cnoid::Position& pos = supportEEFs[i]->targetPose();
+            const cnoid::Position& pos = (supportEEFs[i]->isWrenchCGlobal()) ? cnoid::Position::Identity() : supportEEFs[i]->targetPose();
             const cnoid::Matrix3& R = pos.linear();
             const cnoid::Matrix3& p_x_R = cnoid::hat(pos.translation()) * R;
 

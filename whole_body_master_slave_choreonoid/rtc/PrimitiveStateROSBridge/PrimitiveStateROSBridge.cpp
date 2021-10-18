@@ -100,6 +100,7 @@ RTC::ReturnCode_t PrimitiveStateROSBridge::onExecute(RTC::UniqueId ec_id){
       for(int j=0;j<6;j++) state.pose_follow_gain[j] = m_primitiveCommandRTM_.data[i].poseFollowGain[j];
       state.wrench_follow_gain.resize(6);
       for(int j=0;j<6;j++) state.wrench_follow_gain[j] = m_primitiveCommandRTM_.data[i].wrenchFollowGain[j];
+      state.is_poseC_global = m_primitiveCommandRTM_.data[i].isPoseCGlobal;
       state.poseC.resize(m_primitiveCommandRTM_.data[i].poseC.length()*6);
       for(int j=0;j<m_primitiveCommandRTM_.data[i].poseC.length();j++){
         for(int k=0;k<6;k++) state.poseC[j*6+k] = m_primitiveCommandRTM_.data[i].poseC[j][k];
@@ -112,6 +113,7 @@ RTC::ReturnCode_t PrimitiveStateROSBridge::onExecute(RTC::UniqueId ec_id){
       for(int j=0;j<m_primitiveCommandRTM_.data[i].poseud.length();j++){
         state.poseud[j] = m_primitiveCommandRTM_.data[i].poseud[j];
       }
+      state.is_wrenchC_global = m_primitiveCommandRTM_.data[i].isWrenchCGlobal;
       state.wrenchC.resize(m_primitiveCommandRTM_.data[i].wrenchC.length()*6);
       for(int j=0;j<m_primitiveCommandRTM_.data[i].wrenchC.length();j++){
         for(int k=0;k<6;k++) state.wrenchC[j*6+k] = m_primitiveCommandRTM_.data[i].wrenchC[j][k];
@@ -177,6 +179,7 @@ void PrimitiveStateROSBridge::topicCallback(const primitive_motion_level_msgs::P
     }else{
       for(int j=0;j<msg->primitive_state[i].wrench_follow_gain.size();j++) m_primitiveCommandROS_.data[i].wrenchFollowGain[j] = 0.0;
     }
+    m_primitiveCommandROS_.data[i].isPoseCGlobal = msg->primitive_state[i].is_poseC_global;
     if(msg->primitive_state[i].poseC.size() % 6 == 0){
       m_primitiveCommandROS_.data[i].poseC.length(msg->primitive_state[i].poseC.size() / 6);
       for(int j=0;j<m_primitiveCommandROS_.data[i].poseC.length(); j++) {
@@ -193,6 +196,7 @@ void PrimitiveStateROSBridge::topicCallback(const primitive_motion_level_msgs::P
     for(int j=0;j<m_primitiveCommandROS_.data[i].poseud.length(); j++) {
         m_primitiveCommandROS_.data[i].poseud[j] = msg->primitive_state[i].poseud[j];
     }
+    m_primitiveCommandROS_.data[i].isWrenchCGlobal = msg->primitive_state[i].is_wrenchC_global;
     if(msg->primitive_state[i].wrenchC.size() % 6 == 0){
       m_primitiveCommandROS_.data[i].wrenchC.length(msg->primitive_state[i].wrenchC.size() / 6);
       for(int j=0;j<m_primitiveCommandROS_.data[i].wrenchC.length(); j++) {

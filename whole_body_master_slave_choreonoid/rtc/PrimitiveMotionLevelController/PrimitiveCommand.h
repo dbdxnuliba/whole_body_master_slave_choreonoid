@@ -18,6 +18,10 @@ namespace PrimitiveMotionLevel {
     const cnoid::Vector6& targetWrench() const { return targetWrench_;}
     const cnoid::Vector6& poseFollowGain() const { return poseFollowGain_;}
     const cnoid::Vector6& wrenchFollowGain() const { return wrenchFollowGain_;}
+    const bool& isPoseCGlobal() const { return isPoseCGlobal_; }
+    const Eigen::SparseMatrix<double,Eigen::RowMajor>& poseC() const { return poseC_;}
+    const cnoid::VectorX& poseld() const { return poseld_;}
+    const cnoid::VectorX& poseud() const { return poseud_;}
     const cnoid::Vector6& M() const { return M_;}
     const cnoid::Vector6& D() const { return D_;}
     const cnoid::Vector6& K() const { return K_;}
@@ -39,6 +43,11 @@ namespace PrimitiveMotionLevel {
 
     cnoid::Vector6 poseFollowGain_; // local frame
     cnoid::Vector6 wrenchFollowGain_; // local frame
+
+    bool isPoseCGlobal_;
+    Eigen::SparseMatrix<double,Eigen::RowMajor> poseC_;
+    cnoid::VectorX poseld_;
+    cnoid::VectorX poseud_;
 
     cnoid::Vector6 M_, D_, K_;// local frame
 

@@ -18,6 +18,7 @@ namespace CFR {
     targetWrenchInterpolator_(cnoid::Vector6::Zero(),cnoid::Vector6::Zero(),cnoid::Vector6::Zero(),cpp_filters::HOFFARBIB),
     poseFollowGain_(cnoid::Vector6::Zero()),
     wrenchFollowGain_(cnoid::Vector6::Zero()),
+    isWrenchCGlobal_(false),
     wrenchC_(0,6),
     wrenchld_(0),
     wrenchud_(0),
@@ -57,6 +58,7 @@ namespace CFR {
     }
     for(size_t i=0;i<6;i++) this->poseFollowGain_[i] = idl.poseFollowGain[i];
     for(size_t i=0;i<6;i++) this->wrenchFollowGain_[i] = idl.wrenchFollowGain[i];
+    this->isWrenchCGlobal_ = idl.isWrenchCGlobal;
     this->wrenchC_ = Eigen::SparseMatrix<double,Eigen::RowMajor>(idl.wrenchC.length(),6);
     for(size_t i=0;i<idl.wrenchC.length();i++)
       for(size_t j=0;j<6;j++)

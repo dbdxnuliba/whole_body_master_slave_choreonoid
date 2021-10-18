@@ -54,6 +54,22 @@ namespace PrimitiveMotionLevel {
     }
     for(size_t i=0;i<6;i++) this->poseFollowGain_[i] = idl.poseFollowGain[i];
     for(size_t i=0;i<6;i++) this->wrenchFollowGain_[i] = idl.wrenchFollowGain[i];
+    this->isPoseCGlobal_ = idl.isPoseCGlobal;
+    this->poseC_ = Eigen::SparseMatrix<double,Eigen::RowMajor>(idl.poseC.length(),6);
+    for(size_t i=0;i<idl.poseC.length();i++)
+      for(size_t j=0;j<6;j++)
+        if(idl.poseC[i][j]!=0) this->poseC_.insert(i,j) = idl.poseC[i][j];
+    this->poseld_.resize(idl.poseld.length());
+    for(size_t i=0;i<idl.poseld.length();i++) this->poseld_[i] = idl.poseld[i];
+    this->poseud_.resize(idl.poseud.length());
+    for(size_t i=0;i<idl.poseud.length();i++) this->poseud_[i] = idl.poseud[i];
+    if(this->poseC_.rows() != this->poseld_.rows() ||
+       this->poseld_.rows() != this->poseud_.rows()){
+      std::cerr << "\x1b[31m[PrimitiveCommand::updateFromIdl] " << "dimension mismatch" << "\x1b[39m" << std::endl;
+      this->poseC_.resize(0,6);
+      this->poseld_.resize(0);
+      this->poseud_.resize(0);
+    }
     for(size_t i=0;i<6;i++) this->M_[i] = idl.M[i];
     for(size_t i=0;i<6;i++) this->D_[i] = idl.D[i];
     for(size_t i=0;i<6;i++) this->K_[i] = idl.K[i];

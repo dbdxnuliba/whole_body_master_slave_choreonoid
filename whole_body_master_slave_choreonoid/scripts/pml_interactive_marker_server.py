@@ -5,6 +5,7 @@
 #     - name: <name>
 #       parent_link_name: <linkname for URDF>
 #       local_pose: [x, y, z, x, y, z, w] # default 0,0,0,0,0,0,1
+#       is_wrenchC_global: <bool> # default false
 #       wrenchC: [<double>, <double>, <double>, <double>, <double>, <double>,
 #                 <double>, <double>, <double>, <double>, <double>, <double> ...] # default []
 #       wrenchld: [<double>,
@@ -83,6 +84,10 @@ class EndEffector:
             self.state.time = param["time"]
         else:
             self.state.time = 0.1
+        if "is_wrenchC_global" in param:
+            self.state.is_wrenchC_global = param["is_wrenchC_global"]
+        else:
+            self.state.is_wrenchC_global = False
         if "wrenchC" in param:
             self.state.wrenchC = map(lambda x: float(x), param["wrenchC"])
         else:

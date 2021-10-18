@@ -8,9 +8,11 @@ float64[] wrench
 float64[] pose_follow_gain
 float64[] wrench_follow_gain
 
+bool is_poseC_global
 float64[] poseC
 float64[] poseld
 float64[] poseud
+bool is_wrenchC_global
 float64[] wrenchC
 float64[] wrenchld
 float64[] wrenchud

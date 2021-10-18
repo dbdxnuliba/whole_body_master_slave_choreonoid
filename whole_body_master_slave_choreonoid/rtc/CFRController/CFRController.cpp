@@ -146,6 +146,7 @@ void CFRController::calcOutputPorts(const std::string& instance_name,
     port.m_primitiveCommandCom_.data[comIdx].pose.orientation.p=0.0;
     port.m_primitiveCommandCom_.data[comIdx].pose.orientation.y=0.0;
     port.m_primitiveCommandCom_.data[comIdx].supportCOM = false;
+    port.m_primitiveCommandCom_.data[comIdx].isWrenchCGlobal = false;
     for(int i=0;i<6;i++) port.m_primitiveCommandCom_.data[comIdx].wrench[i] = 0.0;
     for(int i=0;i<6;i++) port.m_primitiveCommandCom_.data[comIdx].M[i] = 0.0;
     for(int i=0;i<6;i++) port.m_primitiveCommandCom_.data[comIdx].D[i] = 0.0;
@@ -153,26 +154,18 @@ void CFRController::calcOutputPorts(const std::string& instance_name,
     for(int i=0;i<6;i++) port.m_primitiveCommandCom_.data[comIdx].poseFollowGain[i] = 0.0;
     for(int i=0;i<6;i++) port.m_primitiveCommandCom_.data[comIdx].wrenchFollowGain[i] = 0.0;
   }
-  cnoid::Position comPose;
-  comPose.translation()[0] = port.m_primitiveCommandCom_.data[comIdx].pose.position.x;
-  comPose.translation()[1] = port.m_primitiveCommandCom_.data[comIdx].pose.position.y;
-  comPose.translation()[2] = port.m_primitiveCommandCom_.data[comIdx].pose.position.z;
-  comPose.linear() = cnoid::rotFromRpy(port.m_primitiveCommandCom_.data[comIdx].pose.orientation.r,
-                                       port.m_primitiveCommandCom_.data[comIdx].pose.orientation.p,
-                                       port.m_primitiveCommandCom_.data[comIdx].pose.orientation.y);
-  cnoid::VectorX l_local = l - M * comPose.translation().head<2>();
-  cnoid::VectorX u_local = u - M * comPose.translation().head<2>();
-  cnoid::MatrixXd M_local = M * comPose.linear().topRows<2>();
-  port.m_primitiveCommandCom_.data[comIdx].wrenchC.length(M_local.rows());
-  port.m_primitiveCommandCom_.data[comIdx].wrenchld.length(l_local.rows());
-  port.m_primitiveCommandCom_.data[comIdx].wrenchud.length(u_local.rows());
-  for(int i=0;i<M_local.rows();i++){
+  port.m_primitiveCommandCom_.data[comIdx].poseC.length(M.rows());
+  port.m_primitiveCommandCom_.data[comIdx].poseld.length(l.rows());
+  port.m_primitiveCommandCom_.data[comIdx].poseud.length(u.rows());
+  cnoid::MatrixXd Mdense = M;
+  for(int i=0;i<M.rows();i++){
     for(int j=0;j<3;j++){
-      port.m_primitiveCommandCom_.data[comIdx].wrenchC[i][j] = M_local(i,j);
+      port.m_primitiveCommandCom_.data[comIdx].poseC[i][j] = Mdense(i,j);
     }
-    port.m_primitiveCommandCom_.data[comIdx].wrenchld[i] = l_local[i];
-    port.m_primitiveCommandCom_.data[comIdx].wrenchud[i] = u_local[i];
+    port.m_primitiveCommandCom_.data[comIdx].poseld[i] = l[i];
+    port.m_primitiveCommandCom_.data[comIdx].poseud[i] = u[i];
   }
+  port.m_primitiveCommandCom_.data[comIdx].isPoseCGlobal = true;
   port.m_primitiveCommandComOut_.write();
 
   // vertices
