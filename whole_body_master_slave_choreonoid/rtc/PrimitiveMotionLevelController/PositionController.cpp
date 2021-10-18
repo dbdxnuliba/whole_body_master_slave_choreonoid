@@ -90,8 +90,6 @@ namespace PrimitiveMotionLevel {
     positionConstraint->eval_link() = nullptr;
     positionConstraint->eval_localR() = positionConstraint->B_localpos().linear();
 
-
-    std::cerr << "offset " << offset.translation().transpose() << " target  " << primitiveCommand->targetPose().translation().transpose() << std::endl;
   }
 
   void PositionController::PositionTask::getIKConstraintsforCOM(std::vector<std::shared_ptr<IK::IKConstraint> >& ikConstraints, const cnoid::BodyPtr& robot_com, double dt, double weight) {
