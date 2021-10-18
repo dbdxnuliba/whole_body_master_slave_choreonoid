@@ -125,7 +125,7 @@ void CFRController::calcOutputPorts(const std::string& instance_name,
   // com Feasible Region
   int comIdx = -1;
   for(int i=0;i<port.m_primitiveCommandCom_.data.length();i++){
-    if(port.m_primitiveCommandCom_.data[i].name == "com") comIdx = i;
+    if(std::string(port.m_primitiveCommandCom_.data[i].name) == "com") comIdx = i;
   }
   if(comIdx == -1){
     comIdx = port.m_primitiveCommandCom_.data.length();
@@ -146,6 +146,12 @@ void CFRController::calcOutputPorts(const std::string& instance_name,
     port.m_primitiveCommandCom_.data[comIdx].pose.orientation.p=0.0;
     port.m_primitiveCommandCom_.data[comIdx].pose.orientation.y=0.0;
     port.m_primitiveCommandCom_.data[comIdx].supportCOM = false;
+    for(int i=0;i<6;i++) port.m_primitiveCommandCom_.data[comIdx].wrench[i] = 0.0;
+    for(int i=0;i<6;i++) port.m_primitiveCommandCom_.data[comIdx].M[i] = 0.0;
+    for(int i=0;i<6;i++) port.m_primitiveCommandCom_.data[comIdx].D[i] = 0.0;
+    for(int i=0;i<6;i++) port.m_primitiveCommandCom_.data[comIdx].K[i] = 0.0;
+    for(int i=0;i<6;i++) port.m_primitiveCommandCom_.data[comIdx].poseFollowGain[i] = 0.0;
+    for(int i=0;i<6;i++) port.m_primitiveCommandCom_.data[comIdx].wrenchFollowGain[i] = 0.0;
   }
   cnoid::Position comPose;
   comPose.translation()[0] = port.m_primitiveCommandCom_.data[comIdx].pose.position.x;
