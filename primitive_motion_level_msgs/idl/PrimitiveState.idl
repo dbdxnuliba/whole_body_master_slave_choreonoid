@@ -21,7 +21,7 @@ module primitive_motion_level_msgs
 
     // local frame (if isGlobal=false). world frame (if isGlobal=true).
     boolean isPoseCGlobal;
-    DblSequence6Sequence poseC; //pose の error の制約
+    DblSequence6Sequence poseC; //pose の frameからのerror の制約
     DblSequence poseld;
     DblSequence  poseud;
     boolean isWrenchCGlobal;

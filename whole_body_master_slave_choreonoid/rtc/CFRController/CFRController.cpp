@@ -161,6 +161,7 @@ void CFRController::calcOutputPorts(const std::string& instance_name,
   for(int i=0;i<M.rows();i++){
     for(int j=0;j<3;j++){
       port.m_primitiveCommandCom_.data[comIdx].poseC[i][j] = Mdense(i,j);
+      port.m_primitiveCommandCom_.data[comIdx].poseC[i][3+j] = 0.0;
     }
     port.m_primitiveCommandCom_.data[comIdx].poseld[i] = l[i];
     port.m_primitiveCommandCom_.data[comIdx].poseud[i] = u[i];

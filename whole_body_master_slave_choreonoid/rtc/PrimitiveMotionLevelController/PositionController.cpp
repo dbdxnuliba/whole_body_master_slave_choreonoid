@@ -106,8 +106,8 @@ namespace PrimitiveMotionLevel {
                                                            double weight,
                                                            std::shared_ptr<IK::COMConstraint>& comConstraint,
                                                            double dt){
-    comConstraint->robot() = robot_com;
-    comConstraint->targetPos() = primitiveCommand->targetPose().translation();
+    comConstraint->A_robot() = robot_com;
+    comConstraint->B_localp() = primitiveCommand->targetPose().translation();
     comConstraint->maxError() << 10.0*dt, 10.0*dt, 10.0*dt;
     comConstraint->precision() << 1e-4, 1e-4, 1e-4;
     comConstraint->weight() = primitiveCommand->poseFollowGain().head<3>();
