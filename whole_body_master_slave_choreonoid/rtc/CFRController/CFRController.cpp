@@ -50,6 +50,8 @@ RTC::ReturnCode_t CFRController::onInitialize(){
 
   this->mode_.setNextMode(ControlMode::MODE_SYNC_TO_CONTROL);
 
+  this->regionMargin_ = 0.02;
+
   return RTC::RTC_OK;
 }
 
@@ -203,8 +205,8 @@ RTC::ReturnCode_t CFRController::onExecute(RTC::UniqueId ec_id){
 
     if(cFRCalculator_.computeCFR(this->primitiveCommandMap_, this->robot_, this->debugLevel_)){
       M = this->cFRCalculator_.M();
-      l = this->cFRCalculator_.l();
-      u = this->cFRCalculator_.u();
+      l = this->cFRCalculator_.l()+cnoid::VectorX::Ones(this->cFRCalculator_.l().size())*this->regionMargin_;
+      u = this->cFRCalculator_.u()-cnoid::VectorX::Ones(this->cFRCalculator_.u().size())*this->regionMargin_;
       vertices = this->cFRCalculator_.vertices();
     }
   }
@@ -243,6 +245,7 @@ bool CFRController::stopControl(){
 bool CFRController::setParams(const whole_body_master_slave_choreonoid::CFRControllerService::CFRControllerParam& i_param){
   std::cerr << "[" << m_profile.instance_name << "] "<< "setParams" << std::endl;
   this->debugLevel_ = i_param.debugLevel;
+  this->regionMargin_ = i_param.regionMargin;
   return true;
 }
 
@@ -250,6 +253,7 @@ bool CFRController::setParams(const whole_body_master_slave_choreonoid::CFRContr
 bool CFRController::getParams(whole_body_master_slave_choreonoid::CFRControllerService::CFRControllerParam& i_param){
   std::cerr << "[" << m_profile.instance_name << "] "<< "getParams" << std::endl;
   i_param.debugLevel = this->debugLevel_;
+  i_param.regionMargin = this->regionMargin_;
   return true;
 }
 

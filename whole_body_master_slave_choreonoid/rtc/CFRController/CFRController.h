@@ -105,6 +105,9 @@ protected:
 
   CFR::CFRCalculator cFRCalculator_;
 
+  // params
+  double regionMargin_;
+
   // static functions
   static void readPorts(const std::string& instance_name, CFRController::Ports& port);
   static void getPrimitiveCommand(const std::string& instance_name, const CFRController::Ports& port, double dt, std::map<std::string, std::shared_ptr<CFR::PrimitiveCommand> >& primitiveCommandMap);

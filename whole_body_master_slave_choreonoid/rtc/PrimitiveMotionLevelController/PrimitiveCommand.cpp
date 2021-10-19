@@ -38,7 +38,7 @@ namespace PrimitiveMotionLevel {
     pose.translation()[1] = idl.pose.position.y;
     pose.translation()[2] = idl.pose.position.z;
     pose.linear() = cnoid::rotFromRpy(idl.pose.orientation.r,idl.pose.orientation.p,idl.pose.orientation.y);
-
+    std::cerr << "2lin" << std::endl << pose.linear() << std::endl;
     if(!this->isInitial_ && idl.time > 0.0){
       this->targetPositionInterpolator_.setGoal(pose.translation(),idl.time);
       this->targetOrientationInterpolator_.setGoal(pose.linear(),idl.time);
@@ -90,7 +90,7 @@ namespace PrimitiveMotionLevel {
     this->targetOrientationInterpolator_.get(R, dt);
     this->targetPose_.linear() = R;
     this->targetWrenchInterpolator_.get(this->targetWrench_, dt);
-
+    std::cerr << "2get" << std::endl << R << std::endl;
   }
 
 };

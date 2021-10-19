@@ -252,6 +252,20 @@ namespace PrimitiveMotionLevel {
     }
   }
 
+  void PositionController::getCOMVelocityIKConstraints(std::shared_ptr<IK::COMVelocityConstraint> cOMVelocityConstraint,  std::vector<std::shared_ptr<IK::IKConstraint> >& iKConstraints, const cnoid::BodyPtr& robot_com, double dt, double weight) {
+    if(!cOMVelocityConstraint) cOMVelocityConstraint = std::make_shared<IK::COMVelocityConstraint>();
+
+    cOMVelocityConstraint->robot() = robot_com;
+    cOMVelocityConstraint->maxVel() = cnoid::Vector3::Ones() * 0.05;
+    cOMVelocityConstraint->minVel() = - cnoid::Vector3::Ones() * 0.05;
+    cOMVelocityConstraint->maxError() << 10.0*dt, 10.0*dt, 10.0*dt;
+    cOMVelocityConstraint->precision() << 1e-4, 1e-4, 1e-4;
+    cOMVelocityConstraint->weight() = cnoid::Vector3::Ones()*weight;
+    cOMVelocityConstraint->dt() = dt;
+
+    iKConstraints.push_back(cOMVelocityConstraint);
+  }
+
   void PositionController::getCollisionIKConstraints(std::vector<std::shared_ptr<IK::ClientCollisionConstraint> >& collisionConstraints, std::vector<std::shared_ptr<IK::IKConstraint> >& collisionIKConstraints, const cnoid::BodyPtr& robot_com, const std::vector<std::shared_ptr<PrimitiveMotionLevel::Collision> >& collisions, double dt, double weight){
     collisionConstraints.resize(collisions.size());
     for(size_t i=0;i<collisionConstraints.size();i++){
@@ -351,6 +365,7 @@ namespace PrimitiveMotionLevel {
     // 関節角度上下限を取得
     std::vector<std::shared_ptr<IK::IKConstraint> > limitConstraint;
     PositionController::getJointLimitIKConstraints(this->jointLimitConstraint_, limitConstraint, robot_com, jointLimitTablesMap, dt);
+    PositionController::getCOMVelocityIKConstraints(this->cOMVelocityConstraint_, limitConstraint, robot_com, dt);
 
     // 関節角度上下限を取得
     PositionController::getCollisionIKConstraints(this->collisionConstraint_, limitConstraint, robot_com, collisions, dt, 3.0); //weightはweを増やしている

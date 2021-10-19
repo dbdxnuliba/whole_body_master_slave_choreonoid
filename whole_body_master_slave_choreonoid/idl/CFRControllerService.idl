@@ -10,6 +10,8 @@ module whole_body_master_slave_choreonoid
     struct CFRControllerParam
     {
       long debugLevel;
+
+      double regionMargin;
     };
     void setParams(in CFRControllerParam i_param);
     void getParams(out CFRControllerParam i_param);
