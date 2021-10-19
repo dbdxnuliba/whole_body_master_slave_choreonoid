@@ -19,7 +19,7 @@ namespace PrimitiveMotionLevel {
 
   class PositionController {
   public:
-    enum solve_mode_enum{ MODE_FULLBODY, MODE_PRIORITIZED};
+    enum SolveMode_enum{ MODE_FULLBODY, MODE_PRIORITIZED};
 
     void reset();
     void control(const std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap, // primitive motion level target
@@ -30,8 +30,10 @@ namespace PrimitiveMotionLevel {
                  double dt,
                  int debugLevel
                  );
-    const solve_mode_enum& solve_mode() const { return this->solve_mode_;}
-    solve_mode_enum& solve_mode() { return this->solve_mode_;}
+    const SolveMode_enum& solveMode() const { return solveMode_;}
+    SolveMode_enum& solveMode() { return solveMode_;}
+    const bool& followRootLink() const { return followRootLink_;}
+    bool& followRootLink() { return followRootLink_;}
 
   protected:
     class PositionTask {
@@ -42,6 +44,7 @@ namespace PrimitiveMotionLevel {
       void getIKConstraintsforSupportEEF(std::vector<std::shared_ptr<IK::IKConstraint> >& ikConstraints, const cnoid::BodyPtr& robot_com, double dt, double weight=1.0);
       void getIKConstraintsforInteractEEF(std::vector<std::shared_ptr<IK::IKConstraint> >& ikConstraints, const cnoid::BodyPtr& robot_com, double dt, double weight=1.0);
       void getIKConstraintsforCOM(std::vector<std::shared_ptr<IK::IKConstraint> >& ikConstraints, const cnoid::BodyPtr& robot_com, double dt, double weight=1.0);
+      void getIKConstraintsforCOMRegion(std::vector<std::shared_ptr<IK::IKConstraint> >& ikConstraints, const cnoid::BodyPtr& robot_com, double dt, double weight=1.0);
       const std::string& name() const { return name_;}
       const std::shared_ptr<const PrimitiveMotionLevel::PrimitiveCommand>& primitiveCommand() const {return primitiveCommand_;}
       EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -57,6 +60,11 @@ namespace PrimitiveMotionLevel {
                                     double weight,
                                     std::shared_ptr<IK::COMConstraint>& comConstraint,
                                     double dt);
+      static void calcCOMRegionConstraint(const cnoid::BodyPtr& robot_com,
+                                          const std::shared_ptr<const PrimitiveMotionLevel::PrimitiveCommand>& primitiveCommand,
+                                          double weight,
+                                          std::shared_ptr<IK::COMConstraint>& comConstraint,
+                                          double dt);
 
       std::string name_;
       std::shared_ptr<const PrimitiveMotionLevel::PrimitiveCommand> primitiveCommand_;
@@ -66,6 +74,7 @@ namespace PrimitiveMotionLevel {
 
       std::shared_ptr<IK::PositionConstraint> positionConstraint_;
       std::shared_ptr<IK::COMConstraint> comConstraint_;
+      std::shared_ptr<IK::COMConstraint> comRegionConstraint_;
     };
 
     class FullbodyIKSolver {
@@ -74,6 +83,7 @@ namespace PrimitiveMotionLevel {
                            const cnoid::BodyPtr& robot_ref,
                            const std::map<std::string, std::shared_ptr<PositionTask> >& positionTaskMap_,
                            double dt,
+                           bool followRootLink,
                            int debugLevel);
     protected:
       cnoid::VectorX jlim_avoid_weight_old_;
@@ -90,6 +100,7 @@ namespace PrimitiveMotionLevel {
                               std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > >& jointLimitTablesMap,
                               const std::vector<std::shared_ptr<PrimitiveMotionLevel::Collision> >& collisions, // current self collision state
                               double dt,
+                              bool followRootLink,
                               int debugLevel);
     protected:
       std::vector<std::shared_ptr<prioritized_qp::Task> > prevTasks_;
@@ -101,7 +112,8 @@ namespace PrimitiveMotionLevel {
       std::shared_ptr<IK::PositionConstraint> rootLinkConstraint_;
     };
   protected:
-    solve_mode_enum solve_mode_ = MODE_PRIORITIZED;
+    SolveMode_enum solveMode_ = MODE_PRIORITIZED;
+    bool followRootLink_ = false;
 
     std::map<std::string, std::shared_ptr<PositionTask> > positionTaskMap_;
 
@@ -110,7 +122,7 @@ namespace PrimitiveMotionLevel {
 
     // static functions
     static void getPrimitiveCommand(const std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap, std::map<std::string, std::shared_ptr<PositionController::PositionTask> >& positionTaskMap);
-    static void getCommandLevelIKConstraints(const cnoid::BodyPtr& robot_ref, std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointAngleConstraint> >& jointAngleConstraint, std::shared_ptr<IK::PositionConstraint>& rootLinkConstraint, std::vector<std::shared_ptr<IK::IKConstraint> >& commandLevelIKConstraints, const cnoid::BodyPtr& robot_com, double dt, double weight = 1.0);
+    static void getCommandLevelIKConstraints(const cnoid::BodyPtr& robot_ref, std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointAngleConstraint> >& jointAngleConstraint, std::shared_ptr<IK::PositionConstraint>& rootLinkConstraint, std::vector<std::shared_ptr<IK::IKConstraint> >& commandLevelIKConstraints, const cnoid::BodyPtr& robot_com, double dt, bool followRootLink, double weight = 1.0);
     static void getJointLimitIKConstraints(std::unordered_map<cnoid::LinkPtr,std::shared_ptr<ik_constraint_joint_limit_table::JointLimitMinMaxTableConstraint> >& jointLimitConstraintMap, std::vector<std::shared_ptr<IK::IKConstraint> >& jointLimitIKConstraints, const cnoid::BodyPtr& robot_com, std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > >& jointLimitTablesMap, double dt, double weight = 1.0);
     static void getCollisionIKConstraints(std::vector<std::shared_ptr<IK::ClientCollisionConstraint> >& collisionConstraints, std::vector<std::shared_ptr<IK::IKConstraint> >& collisionIKConstraints, const cnoid::BodyPtr& robot_com, const std::vector<std::shared_ptr<PrimitiveMotionLevel::Collision> >& collisions, double dt, double weight = 1.0);
     static void getJointVelocityIKConstraints(std::unordered_map<cnoid::LinkPtr,std::shared_ptr<IK::JointVelocityConstraint> >& jointVelocityConstraintMap, std::vector<std::shared_ptr<IK::IKConstraint> >& jointVelocityIKConstraints, const cnoid::BodyPtr& robot_com, double dt, double weight = 1.0);

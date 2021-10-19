@@ -59,7 +59,12 @@ RTC::ReturnCode_t PrimitiveMotionLevelController::onInitialize(){
   this->m_robot_ref_ = robot;
   this->m_robot_com_ = robot->clone();
 
-  this->outputRatioInterpolator_ = std::make_shared<cpp_filters::TwoPointInterpolator<double> >(0.0,0.0,0.0,cpp_filters::HOFFARBIB);
+  this->useJoints_.push_back(this->m_robot_com_->rootLink());
+  for(int i=0;i<this->m_robot_com_->numJoints();i++) this->useJoints_.push_back(this->m_robot_com_->joint(i));
+
+  this->outputOffsetInterpolators_.rootpInterpolator_= std::make_shared<cpp_filters::TwoPointInterpolator<cnoid::Vector3> >(cnoid::Vector3::Zero(),cnoid::Vector3::Zero(),cnoid::Vector3::Zero(),cpp_filters::HOFFARBIB);
+  this->outputOffsetInterpolators_.rootRInterpolator_= std::make_shared<cpp_filters::TwoPointInterpolatorSO3 >(cnoid::Matrix3::Identity(),cnoid::Vector3::Zero(),cnoid::Vector3::Zero(),cpp_filters::HOFFARBIB);
+  for(int i=0;i<this->m_robot_com_->numJoints();i++) this->outputOffsetInterpolators_.jointInterpolatorMap_[this->m_robot_com_->joint(i)] = std::make_shared<cpp_filters::TwoPointInterpolator<double> >(0.0,0.0,0.0,cpp_filters::HOFFARBIB);
 
   for(size_t i=0;i<this->m_robot_com_->numJoints();i++){
     // apply margin
@@ -151,28 +156,25 @@ void PrimitiveMotionLevelController::getCollision(const std::string& instance_na
 }
 
 
-void PrimitiveMotionLevelController::processModeTransition(const std::string& instance_name, PrimitiveMotionLevelController::ControlMode& mode, std::shared_ptr<cpp_filters::TwoPointInterpolator<double> >& outputRatioInterpolator, const double dt){
-  double tmp;
+void PrimitiveMotionLevelController::processModeTransition(const std::string& instance_name, PrimitiveMotionLevelController::ControlMode& mode, const double dt, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_com, PrimitiveMotionLevelController::OutputOffsetInterpolators& outputOffsetInterpolators){
+  double tmpdouble;
+  bool empty=true;
   switch(mode.now()){
   case PrimitiveMotionLevelController::ControlMode::MODE_SYNC_TO_CONTROL:
-    if(mode.pre() == PrimitiveMotionLevelController::ControlMode::MODE_IDLE){
-      outputRatioInterpolator->setGoal(1.0, 3.0);
-    }
-    if (!outputRatioInterpolator->isEmpty() ){
-      outputRatioInterpolator->get(tmp, dt);
-    }else{
-      mode.setNextMode(PrimitiveMotionLevelController::ControlMode::MODE_CONTROL);
-    }
+    mode.setNextMode(PrimitiveMotionLevelController::ControlMode::MODE_CONTROL);
     break;
   case PrimitiveMotionLevelController::ControlMode::MODE_SYNC_TO_IDLE:
     if(mode.pre() == PrimitiveMotionLevelController::ControlMode::MODE_CONTROL){
-      outputRatioInterpolator->setGoal(0.0, 3.0);
+      outputOffsetInterpolators.rootpInterpolator_->reset(robot_com->rootLink()->p()-robot_ref->rootLink()->p(),cnoid::Vector3::Zero(),cnoid::Vector3::Zero());
+      outputOffsetInterpolators.rootpInterpolator_->setGoal(cnoid::Vector3::Zero(), 3.0);
+      outputOffsetInterpolators.rootRInterpolator_->reset(robot_com->rootLink()->R()*robot_ref->rootLink()->R().transpose(),cnoid::Vector3::Zero(),cnoid::Vector3::Zero());
+      outputOffsetInterpolators.rootRInterpolator_->setGoal(cnoid::Matrix3d::Identity(), 3.0);
+      for(int i=0;i<robot_com->numJoints();i++) {
+        outputOffsetInterpolators.jointInterpolatorMap_[robot_com->joint(i)]->reset(robot_com->joint(i)->q()-robot_ref->joint(i)->q(),0.0,0.0);
+        outputOffsetInterpolators.jointInterpolatorMap_[robot_com->joint(i)]->setGoal(0.0,3.0);
+      }
     }
-    if (!outputRatioInterpolator->isEmpty()) {
-      outputRatioInterpolator->get(tmp, dt);
-    }else{
-      mode.setNextMode(PrimitiveMotionLevelController::ControlMode::MODE_IDLE);
-    }
+    mode.setNextMode(PrimitiveMotionLevelController::ControlMode::MODE_IDLE);
     break;
   }
   mode.update();
@@ -182,39 +184,49 @@ void PrimitiveMotionLevelController::preProcessForControl(const std::string& ins
   positionController.reset();
 }
 
-void PrimitiveMotionLevelController::passThrough(const std::string& instance_name, const cnoid::BodyPtr& robot_ref, cnoid::BodyPtr& robot_com){
-  robot_com->rootLink()->T() = robot_ref->rootLink()->T();
+void PrimitiveMotionLevelController::passThrough(const std::string& instance_name, const cnoid::BodyPtr& robot_ref, cnoid::BodyPtr& robot_com, PrimitiveMotionLevelController::OutputOffsetInterpolators& outputOffsetInterpolators, double dt, const std::vector<cnoid::LinkPtr>& useJoints){
+  if(std::find(useJoints.begin(), useJoints.end(), robot_com->rootLink()) == useJoints.end()){
+    cnoid::Vector3 offsetp = cnoid::Vector3::Zero();
+    if (!outputOffsetInterpolators.rootpInterpolator_->isEmpty()) outputOffsetInterpolators.rootpInterpolator_->get(offsetp, dt);
+    robot_com->rootLink()->p() = robot_ref->rootLink()->p() + offsetp;
+    cnoid::Matrix3 offsetR = cnoid::Matrix3d::Identity();
+    if (!outputOffsetInterpolators.rootRInterpolator_->isEmpty()) outputOffsetInterpolators.rootRInterpolator_->get(offsetR, dt);
+    robot_com->rootLink()->R() = offsetR*robot_ref->rootLink()->R();
+  }
+
   for(size_t i=0;i<robot_com->numJoints();i++) {
-    robot_com->joint(i)->q() = robot_ref->joint(i)->q();
-    robot_com->joint(i)->dq() = 0.0;
-    robot_com->joint(i)->ddq() = 0.0;
-    robot_com->joint(i)->u() = 0.0;
+    if(std::find(useJoints.begin(), useJoints.end(), robot_com->joint(i)) == useJoints.end()){
+      double offset = 0.0, tmpv, tmpa;
+      if (!outputOffsetInterpolators.jointInterpolatorMap_[robot_com->joint(i)]->isEmpty()) outputOffsetInterpolators.jointInterpolatorMap_[robot_com->joint(i)]->get(offset, tmpv, tmpa, dt);
+      robot_com->joint(i)->q() = robot_ref->joint(i)->q() + offset;
+      robot_com->joint(i)->dq() = 0.0;
+      robot_com->joint(i)->ddq() = 0.0;
+      robot_com->joint(i)->u() = 0.0;
+    }
   }
 
   robot_com->calcForwardKinematics();
   robot_com->calcCenterOfMass();
 }
 
-void PrimitiveMotionLevelController::calcOutputPorts(const std::string& instance_name, PrimitiveMotionLevelController::Ports& port, double output_ratio, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_com, std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap) {
+void PrimitiveMotionLevelController::calcOutputPorts(const std::string& instance_name, PrimitiveMotionLevelController::Ports& port, const cnoid::BodyPtr& robot_com, std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap) {
   // qCom
   if (port.m_qRef_.data.length() == robot_com->numJoints()){
     port.m_qCom_.data.length(robot_com->numJoints());
     for (int i = 0; i < robot_com->numJoints(); i++ ){
-      port.m_qCom_.data[i] = output_ratio * robot_com->joint(i)->q() + (1 - output_ratio) * robot_ref->joint(i)->q();
+      port.m_qCom_.data[i] = robot_com->joint(i)->q();
     }
     port.m_qCom_.tm = port.m_qRef_.tm;
     port.m_qComOut_.write();
   }
   // basePos
-  cnoid::Vector3 outputBasePos = output_ratio * robot_com->rootLink()->p() + (1 - output_ratio) * robot_ref->rootLink()->p();
-  port.m_basePosCom_.data.x = outputBasePos[0];
-  port.m_basePosCom_.data.y = outputBasePos[1];
-  port.m_basePosCom_.data.z = outputBasePos[2];
+  port.m_basePosCom_.data.x = robot_com->rootLink()->p()[0];
+  port.m_basePosCom_.data.y = robot_com->rootLink()->p()[1];
+  port.m_basePosCom_.data.z = robot_com->rootLink()->p()[2];
   port.m_basePosCom_.tm = port.m_qRef_.tm;
   port.m_basePosComOut_.write();
   // baseRpy
-  cnoid::Matrix3 outputBaseR = cnoid::Matrix3(cnoid::Quaterniond(robot_ref->rootLink()->R()).slerp(output_ratio, cnoid::Quaterniond(robot_com->rootLink()->R())));
-  cnoid::Vector3 outputBaseRpy = cnoid::rpyFromRot(outputBaseR);
+  cnoid::Vector3 outputBaseRpy = cnoid::rpyFromRot(robot_com->rootLink()->R());
   port.m_baseRpyCom_.data.r = outputBaseRpy[0];
   port.m_baseRpyCom_.data.p = outputBaseRpy[1];
   port.m_baseRpyCom_.data.y = outputBaseRpy[2];
@@ -222,19 +234,19 @@ void PrimitiveMotionLevelController::calcOutputPorts(const std::string& instance
   port.m_baseRpyComOut_.write();
   // basePose
   port.m_basePoseCom_.tm = port.m_qRef_.tm;
-  port.m_basePoseCom_.data.position.x = outputBasePos[0];
-  port.m_basePoseCom_.data.position.y = outputBasePos[1];
-  port.m_basePoseCom_.data.position.z = outputBasePos[2];
+  port.m_basePoseCom_.data.position.x = robot_com->rootLink()->p()[0];
+  port.m_basePoseCom_.data.position.y = robot_com->rootLink()->p()[1];
+  port.m_basePoseCom_.data.position.z = robot_com->rootLink()->p()[2];
   port.m_basePoseCom_.data.orientation.r = outputBaseRpy[0];
   port.m_basePoseCom_.data.orientation.p = outputBaseRpy[1];
   port.m_basePoseCom_.data.orientation.y = outputBaseRpy[2];
   port.m_basePoseComOut_.write();
   // m_baseTform
   port.m_baseTformCom_.data.length(12);
-  for(int i=0;i<3;i++) port.m_baseTformCom_.data[i] = outputBasePos[i];
+  for(int i=0;i<3;i++) port.m_baseTformCom_.data[i] = robot_com->rootLink()->p()[i];
   for(int i=0;i<3;i++) {
     for(int j=0;j<3;j++) {
-      port.m_baseTformCom_.data[3+i*3+j] = outputBaseR(i,j);// row major
+      port.m_baseTformCom_.data[3+i*3+j] = robot_com->rootLink()->R()(i,j);// row major
     }
   }
   port.m_baseTformCom_.tm = port.m_qRef_.tm;
@@ -260,6 +272,7 @@ void PrimitiveMotionLevelController::calcOutputPorts(const std::string& instance
 }
 
 RTC::ReturnCode_t PrimitiveMotionLevelController::onExecute(RTC::UniqueId ec_id){
+  std::lock_guard<std::mutex> guard(this->mutex_);
 
   std::string instance_name = std::string(this->m_profile.instance_name);
   double dt = 1.0 / this->get_context(ec_id)->get_rate();
@@ -277,9 +290,12 @@ RTC::ReturnCode_t PrimitiveMotionLevelController::onExecute(RTC::UniqueId ec_id)
   PrimitiveMotionLevelController::getCollision(instance_name, this->ports_, this->collisions_);
 
   // mode遷移を実行
-  PrimitiveMotionLevelController::processModeTransition(instance_name, this->mode_, this->outputRatioInterpolator_, dt);
+  PrimitiveMotionLevelController::processModeTransition(instance_name, this->mode_, dt, this->m_robot_ref_, this->m_robot_com_, this->outputOffsetInterpolators_);
 
   if(this->mode_.isRunning()) {
+    // use_joints以外はrobot_refをrobot_comへ
+    PrimitiveMotionLevelController::passThrough(instance_name, this->m_robot_ref_, this->m_robot_com_, this->outputOffsetInterpolators_, dt, this->useJoints_);
+
     if(this->mode_.isInitialize()){
       PrimitiveMotionLevelController::preProcessForControl(instance_name, this->positionController_);
     }
@@ -287,13 +303,12 @@ RTC::ReturnCode_t PrimitiveMotionLevelController::onExecute(RTC::UniqueId ec_id)
     this->positionController_.control(this->primitiveCommandMap_, this->collisions_, this->m_robot_ref_, this->jointLimitTablesMap_, this->m_robot_com_, dt, this->debugLevel_);
 
   } else {
-    // robot_refがそのままrobot_comになる
-    PrimitiveMotionLevelController::passThrough(instance_name, this->m_robot_ref_, this->m_robot_com_);
+    // robot_refをrobot_comへ
+    PrimitiveMotionLevelController::passThrough(instance_name, this->m_robot_ref_, this->m_robot_com_, this->outputOffsetInterpolators_, dt);
   }
 
   // write outport
-  double output_ratio; this->outputRatioInterpolator_->get(output_ratio);
-  PrimitiveMotionLevelController::calcOutputPorts(instance_name, this->ports_, output_ratio, this->m_robot_ref_, this->m_robot_com_, this->primitiveCommandMap_);
+  PrimitiveMotionLevelController::calcOutputPorts(instance_name, this->ports_, this->m_robot_com_, this->primitiveCommandMap_);
 
   this->loop_++;
   return RTC::RTC_OK;
@@ -301,6 +316,7 @@ RTC::ReturnCode_t PrimitiveMotionLevelController::onExecute(RTC::UniqueId ec_id)
 
 
 bool PrimitiveMotionLevelController::startControl(){
+  std::lock_guard<std::mutex> guard(this->mutex_);
   if(this->mode_.now() == ControlMode::MODE_IDLE){
     std::cerr << "[" << m_profile.instance_name << "] "<< "startControl" << std::endl;
     this->mode_.setNextMode(ControlMode::MODE_SYNC_TO_CONTROL);
@@ -313,6 +329,7 @@ bool PrimitiveMotionLevelController::startControl(){
 
 
 bool PrimitiveMotionLevelController::stopControl(){
+  std::lock_guard<std::mutex> guard(this->mutex_);
   if(this->mode_.now() == ControlMode::MODE_CONTROL ){
     std::cerr << "[" << m_profile.instance_name << "] "<< "stopControl" << std::endl;
     this->mode_.setNextMode(ControlMode::MODE_SYNC_TO_IDLE);
@@ -324,15 +341,62 @@ bool PrimitiveMotionLevelController::stopControl(){
 }
 
 bool PrimitiveMotionLevelController::setParams(const whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param){
+  std::lock_guard<std::mutex> guard(this->mutex_);
   std::cerr << "[" << m_profile.instance_name << "] "<< "setParams" << std::endl;
   this->debugLevel_ = i_param.debugLevel;
+  std::vector<cnoid::LinkPtr> useJointsNew;
+  for(int i=0;i<i_param.useJoints.length();i++){
+    cnoid::LinkPtr link = this->m_robot_com_->link(std::string(i_param.useJoints[i]));
+    if(link && (link->isRoot() || link->jointId()>=0)) useJointsNew.push_back(this->m_robot_com_->link(std::string(i_param.useJoints[i])));
+  }
+  if(this->mode_.isRunning()){
+    for(int i=0;i<this->useJoints_.size();i++){
+      if(std::find(useJointsNew.begin(), useJointsNew.end(), this->useJoints_[i]) == useJointsNew.end()) {
+        if(this->useJoints_[i] == this->m_robot_com_->rootLink()) {
+          this->outputOffsetInterpolators_.rootpInterpolator_->reset(this->m_robot_com_->rootLink()->p()-this->m_robot_ref_->rootLink()->p(),cnoid::Vector3::Zero(),cnoid::Vector3::Zero());
+          this->outputOffsetInterpolators_.rootpInterpolator_->setGoal(cnoid::Vector3::Zero(), 3.0);
+          this->outputOffsetInterpolators_.rootRInterpolator_->reset(this->m_robot_com_->rootLink()->R()*this->m_robot_ref_->rootLink()->R().transpose(),cnoid::Vector3::Zero(),cnoid::Vector3::Zero());
+          this->outputOffsetInterpolators_.rootRInterpolator_->setGoal(cnoid::Matrix3d::Identity(), 3.0);
+        }else{
+          this->outputOffsetInterpolators_.jointInterpolatorMap_[this->useJoints_[i]]->reset(this->useJoints_[i]->q()-this->m_robot_ref_->joint(this->useJoints_[i]->jointId())->q(),0.0,0.0);
+          this->outputOffsetInterpolators_.jointInterpolatorMap_[this->useJoints_[i]]->setGoal(0.0,3.0);
+        }
+      }
+    }
+  }
+  this->useJoints_ = useJointsNew;
+
+  switch(i_param.solveMode){
+  case whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::SolveModeEnum::MODE_FULLBODY:
+    this->positionController_.solveMode() = PrimitiveMotionLevel::PositionController::MODE_FULLBODY;
+    break;
+  case whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::SolveModeEnum::MODE_PRIORITIZED:
+  default:
+    this->positionController_.solveMode() = PrimitiveMotionLevel::PositionController::MODE_PRIORITIZED;
+    break;
+  }
+  this->positionController_.followRootLink() = i_param.followRootLink;
   return true;
 }
 
 
 bool PrimitiveMotionLevelController::getParams(whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param){
+  std::lock_guard<std::mutex> guard(this->mutex_);
   std::cerr << "[" << m_profile.instance_name << "] "<< "getParams" << std::endl;
   i_param.debugLevel = this->debugLevel_;
+  i_param.useJoints.length(this->useJoints_.size());
+  for(int i=0;i<this->useJoints_.size();i++) i_param.useJoints[i] = this->useJoints_[i]->name().c_str();
+
+  switch(this->positionController_.solveMode()){
+  case PrimitiveMotionLevel::PositionController::MODE_FULLBODY:
+    i_param.solveMode = whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::SolveModeEnum::MODE_FULLBODY;
+    break;
+  case PrimitiveMotionLevel::PositionController::MODE_PRIORITIZED:
+  default:
+    i_param.solveMode = whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::SolveModeEnum::MODE_PRIORITIZED;
+    break;
+  }
+  i_param.followRootLink = this->positionController_.followRootLink();
   return true;
 }
 

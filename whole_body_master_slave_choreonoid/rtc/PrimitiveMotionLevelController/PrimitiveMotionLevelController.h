@@ -4,6 +4,7 @@
 #include <memory>
 #include <map>
 #include <time.h>
+#include <mutex>
 
 #include <rtm/idl/BasicDataType.hh>
 #include <rtm/idl/ExtendedDataTypes.hh>
@@ -107,6 +108,12 @@ public:
     bool isInitialize(){ return (previous==MODE_IDLE) && (current==MODE_SYNC_TO_CONTROL) ;}
   };
 
+  class OutputOffsetInterpolators {
+  public:
+    std::shared_ptr<cpp_filters::TwoPointInterpolator<cnoid::Vector3> > rootpInterpolator_;
+    std::shared_ptr<cpp_filters::TwoPointInterpolatorSO3> rootRInterpolator_;
+    std::unordered_map<cnoid::LinkPtr, std::shared_ptr<cpp_filters::TwoPointInterpolator<double> > > jointInterpolatorMap_; // controlで上書きしない関節について、refereceに加えるoffset
+  };
 
 public:
   PrimitiveMotionLevelController(RTC::Manager* manager);
@@ -121,13 +128,16 @@ public:
   bool getParams(whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param);
 
 protected:
+  std::mutex mutex_;
 
   unsigned int debugLevel_;
   unsigned int loop_;
 
   Ports ports_;
   ControlMode mode_;
-  std::shared_ptr<cpp_filters::TwoPointInterpolator<double> > outputRatioInterpolator_;
+
+  std::vector<cnoid::LinkPtr> useJoints_; // controlで上書きする関節(root含む)のリスト
+  OutputOffsetInterpolators outputOffsetInterpolators_;
 
   cnoid::BodyPtr m_robot_ref_; // reference (q, basepos and baserpy only)
   cnoid::BodyPtr m_robot_com_; // command<
@@ -148,10 +158,10 @@ protected:
   static void calcReferenceRobot(const std::string& instance_name, const PrimitiveMotionLevelController::Ports& port, cnoid::BodyPtr& robot);
   static void getPrimitiveCommand(const std::string& instance_name, const PrimitiveMotionLevelController::Ports& port, double dt, std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap);
   static void getCollision(const std::string& instance_name, const PrimitiveMotionLevelController::Ports& port, std::vector<std::shared_ptr<PrimitiveMotionLevel::Collision> >& collisions);
-  static void processModeTransition(const std::string& instance_name, PrimitiveMotionLevelController::ControlMode& mode, std::shared_ptr<cpp_filters::TwoPointInterpolator<double> >& outputRatioInterpolator, const double dt);
+  static void processModeTransition(const std::string& instance_name, PrimitiveMotionLevelController::ControlMode& mode, const double dt, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_com, PrimitiveMotionLevelController::OutputOffsetInterpolators& outputOffsetInterpolators);
   static void preProcessForControl(const std::string& instance_name, PrimitiveMotionLevel::PositionController& positionController);
-  static void passThrough(const std::string& instance_name, const cnoid::BodyPtr& robot_ref, cnoid::BodyPtr& robot_com);
-  static void calcOutputPorts(const std::string& instance_name, PrimitiveMotionLevelController::Ports& port, double output_ratio, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_com, std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap);
+  static void passThrough(const std::string& instance_name, const cnoid::BodyPtr& robot_ref, cnoid::BodyPtr& robot_com, PrimitiveMotionLevelController::OutputOffsetInterpolators& outputOffsetInterpolators, double dt, const std::vector<cnoid::LinkPtr>& useJoints = std::vector<cnoid::LinkPtr>());
+  static void calcOutputPorts(const std::string& instance_name, PrimitiveMotionLevelController::Ports& port, const cnoid::BodyPtr& robot_com, std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap);
 };
 
 

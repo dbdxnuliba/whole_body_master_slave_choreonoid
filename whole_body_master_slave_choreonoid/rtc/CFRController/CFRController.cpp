@@ -159,12 +159,10 @@ void CFRController::calcOutputPorts(const std::string& instance_name,
   port.m_primitiveCommandCom_.data[comIdx].poseud.length(u.rows());
   cnoid::MatrixXd Mdense = M;
   for(int i=0;i<M.rows();i++){
-    for(int j=0;j<3;j++){
-      port.m_primitiveCommandCom_.data[comIdx].poseC[i][j] = Mdense(i,j);
-      port.m_primitiveCommandCom_.data[comIdx].poseC[i][3+j] = 0.0;
-    }
-    port.m_primitiveCommandCom_.data[comIdx].poseld[i] = l[i];
-    port.m_primitiveCommandCom_.data[comIdx].poseud[i] = u[i];
+    for(int j=0;j<2;j++) port.m_primitiveCommandCom_.data[comIdx].poseC[i][j] = Mdense(i,j);
+    for(int j=2;j<6;j++) port.m_primitiveCommandCom_.data[comIdx].poseC[i][j] = 0.0;
+    port.m_primitiveCommandCom_.data[comIdx].poseld[i] = std::max(l[i],-1e10); // 大きすぎると後のコンポーネントの処理でオーバーフローする
+    port.m_primitiveCommandCom_.data[comIdx].poseud[i] = std::min(u[i],1e10);
   }
   port.m_primitiveCommandCom_.data[comIdx].isPoseCGlobal = true;
   port.m_primitiveCommandComOut_.write();
