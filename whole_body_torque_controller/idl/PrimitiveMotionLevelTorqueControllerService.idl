@@ -1,0 +1,19 @@
+#include "ExtendedDataTypes.idl" // openrtm
+module whole_body_torque_controller
+{
+  interface PrimitiveMotionLevelTorqueControllerService
+  {
+    struct PrimitiveMotionLevelTorqueControllerParam
+    {
+      // RTC setting
+      long debugLevel;
+      sequence<string> useJoints;
+
+    };
+    void setParams(in PrimitiveMotionLevelTorqueControllerParam i_param);
+    void getParams(out PrimitiveMotionLevelTorqueControllerParam i_param);
+
+    boolean startControl();
+    boolean stopControl();
+  };
+};
