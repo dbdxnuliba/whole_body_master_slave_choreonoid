@@ -210,8 +210,7 @@ void PrimitiveMotionLevelTorqueController::processModeTransition(const std::stri
   case PrimitiveMotionLevelTorqueController::ControlMode::MODE_SYNC_TO_CONTROL:
     if(mode.pre() == PrimitiveMotionLevelTorqueController::ControlMode::MODE_IDLE){
       for(int i=0;i<useJoints.size();i++) {
-        outputInterpolators.qComFilterMap_[useJoints[i]]->reset(useJoints[i]->q());
-        outputInterpolators.outputRatioInterpolatorMap_[useJoints[i]]->setGoal(1.0,3.0);
+        PrimitiveMotionLevelTorqueController::enableJoint(useJoints[i],outputInterpolators);
       }
     }
     mode.setNextMode(PrimitiveMotionLevelTorqueController::ControlMode::MODE_CONTROL);
@@ -219,9 +218,7 @@ void PrimitiveMotionLevelTorqueController::processModeTransition(const std::stri
   case PrimitiveMotionLevelTorqueController::ControlMode::MODE_SYNC_TO_IDLE:
     if(mode.pre() == PrimitiveMotionLevelTorqueController::ControlMode::MODE_CONTROL){
       for(int i=0;i<robot_com->numJoints();i++) {
-        outputInterpolators.qOffsetInterpolatorMap_[robot_com->joint(i)]->reset(robot_com->joint(i)->q()-robot_ref->joint(i)->q(),0.0,0.0);
-        outputInterpolators.qOffsetInterpolatorMap_[robot_com->joint(i)]->setGoal(0.0,3.0);
-        outputInterpolators.outputRatioInterpolatorMap_[robot_com->joint(i)]->setGoal(0.0,3.0);
+        PrimitiveMotionLevelTorqueController::disableJoint(useJoints[i],robot_ref,outputInterpolators);
       }
     }
     mode.setNextMode(PrimitiveMotionLevelTorqueController::ControlMode::MODE_IDLE);
@@ -319,6 +316,17 @@ void PrimitiveMotionLevelTorqueController::calcOutputPorts(const std::string& in
   port.m_baseTformActOut_.write();
 }
 
+void PrimitiveMotionLevelTorqueController::enableJoint(const cnoid::LinkPtr& joint_com, PrimitiveMotionLevelTorqueController::OutputInterpolators& outputInterpolators) {
+  outputInterpolators.qComFilterMap_[joint_com]->reset(joint_com->q());
+  outputInterpolators.outputRatioInterpolatorMap_[joint_com]->setGoal(1.0,3.0);
+}
+
+void PrimitiveMotionLevelTorqueController::disableJoint(const cnoid::LinkPtr& joint_com, const cnoid::BodyPtr& robot_ref, PrimitiveMotionLevelTorqueController::OutputInterpolators& outputInterpolators) {
+  outputInterpolators.qOffsetInterpolatorMap_[joint_com]->reset(joint_com->q()-robot_ref->joint(joint_com->jointId())->q(),0.0,0.0);
+  outputInterpolators.qOffsetInterpolatorMap_[joint_com]->setGoal(0.0,3.0);
+  outputInterpolators.outputRatioInterpolatorMap_[joint_com]->setGoal(0.0,3.0);
+}
+
 RTC::ReturnCode_t PrimitiveMotionLevelTorqueController::onExecute(RTC::UniqueId ec_id){
   std::lock_guard<std::mutex> guard(this->mutex_);
 
@@ -401,15 +409,12 @@ bool PrimitiveMotionLevelTorqueController::setParams(const whole_body_torque_con
   if(this->mode_.isRunning()){
     for(int i=0;i<this->useJoints_.size();i++){
       if(std::find(useJointsNew.begin(), useJointsNew.end(), this->useJoints_[i]) == useJointsNew.end()) {
-        this->outputInterpolators_.qOffsetInterpolatorMap_[this->useJoints_[i]]->reset(this->useJoints_[i]->q()-this->m_robot_ref_->joint(this->useJoints_[i]->jointId())->q(),0.0,0.0);
-        this->outputInterpolators_.qOffsetInterpolatorMap_[this->useJoints_[i]]->setGoal(0.0,3.0);
-        this->outputInterpolators_.outputRatioInterpolatorMap_[this->useJoints_[i]]->setGoal(0.0,3.0);
+        PrimitiveMotionLevelTorqueController::enableJoint(this->useJoints_[i],this->outputInterpolators_);
       }
     }
     for(int i=0;i<useJointsNew.size();i++){
       if(std::find(this->useJoints_.begin(), this->useJoints_.end(), useJointsNew[i]) == this->useJoints_.end()) {
-        this->outputInterpolators_.qComFilterMap_[useJointsNew[i]]->reset(useJointsNew[i]->q());
-        this->outputInterpolators_.outputRatioInterpolatorMap_[useJointsNew[i]]->setGoal(1.0,3.0);
+        PrimitiveMotionLevelTorqueController::disableJoint(useJointsNew[i],this->m_robot_ref_,this->outputInterpolators_);
       }
     }
   }

@@ -182,6 +182,8 @@ protected:
   static void preProcessForControl(const std::string& instance_name, PrimitiveMotionLevelTorque::TorqueController& torqueController);
   static void calcq(const std::string& instance_name, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_act, cnoid::BodyPtr& robot_com, PrimitiveMotionLevelTorqueController::OutputInterpolators& outputInterpolators, double dt, const std::vector<cnoid::LinkPtr>& useJoints=std::vector<cnoid::LinkPtr>());
   static void calcOutputPorts(const std::string& instance_name, PrimitiveMotionLevelTorqueController::Ports& port, const cnoid::BodyPtr& robot_com, const cnoid::BodyPtr& robot_act, PrimitiveMotionLevelTorqueController::OutputInterpolators& outputInterpolators, double dt);
+  static void enableJoint(const cnoid::LinkPtr& joint_com, PrimitiveMotionLevelTorqueController::OutputInterpolators& outputInterpolators);
+  static void disableJoint(const cnoid::LinkPtr& joint_com, const cnoid::BodyPtr& robot_ref, PrimitiveMotionLevelTorqueController::OutputInterpolators& outputInterpolators);
 };
 
 
