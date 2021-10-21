@@ -157,8 +157,6 @@ void PrimitiveMotionLevelController::getCollision(const std::string& instance_na
 
 
 void PrimitiveMotionLevelController::processModeTransition(const std::string& instance_name, PrimitiveMotionLevelController::ControlMode& mode, const double dt, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_com, PrimitiveMotionLevelController::OutputOffsetInterpolators& outputOffsetInterpolators){
-  double tmpdouble;
-  bool empty=true;
   switch(mode.now()){
   case PrimitiveMotionLevelController::ControlMode::MODE_SYNC_TO_CONTROL:
     mode.setNextMode(PrimitiveMotionLevelController::ControlMode::MODE_CONTROL);
@@ -347,7 +345,7 @@ bool PrimitiveMotionLevelController::setParams(const whole_body_master_slave_cho
   std::vector<cnoid::LinkPtr> useJointsNew;
   for(int i=0;i<i_param.useJoints.length();i++){
     cnoid::LinkPtr link = this->m_robot_com_->link(std::string(i_param.useJoints[i]));
-    if(link && (link->isRoot() || link->jointId()>=0)) useJointsNew.push_back(this->m_robot_com_->link(std::string(i_param.useJoints[i])));
+    if(link && (link->isRoot() || link->jointId()>=0)) useJointsNew.push_back(link);
   }
   if(this->mode_.isRunning()){
     for(int i=0;i<this->useJoints_.size();i++){
