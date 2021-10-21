@@ -169,6 +169,23 @@ void PrimitiveMotionLevelTorqueController::calcReferenceRobot(const std::string&
   robot->calcForwardKinematics();
 }
 
+void PrimitiveMotionLevelTorqueController::calcActualRobot(const std::string& instance_name, const PrimitiveMotionLevelTorqueController::Ports& port, cnoid::BodyPtr& robot) {
+  if(port.m_qAct_.data.length() == robot->numJoints()){
+    for ( int i = 0; i < robot->numJoints(); i++ ){
+      robot->joint(i)->q() = port.m_qAct_.data[i];
+    }
+    robot->calcForwardKinematics();
+
+    if(!robot->rootLink()->isFixedJoint()){
+      cnoid::AccelerationSensorPtr imu = robot->findDevice<cnoid::AccelerationSensor>("gyrometer");
+      cnoid::Matrix3 imuR = imu->link()->R() * imu->R_local();
+      cnoid::Matrix3 actR = cnoid::rotFromRpy(port.m_imuAct_.data.r, port.m_imuAct_.data.p, port.m_imuAct_.data.y);
+      robot->rootLink()->R() = actR * (imuR.transpose() * robot->rootLink()->R());
+      robot->calcForwardKinematics();
+    }
+  }
+}
+
 void PrimitiveMotionLevelTorqueController::getPrimitiveCommand(const std::string& instance_name, const PrimitiveMotionLevelTorqueController::Ports& port, double dt, std::map<std::string, std::shared_ptr<PrimitiveMotionLevelTorque::PrimitiveCommand> >& primitiveCommandMap) {
   // 消滅したEndEffectorを削除
   for(std::map<std::string, std::shared_ptr<PrimitiveMotionLevelTorque::PrimitiveCommand> >::iterator it = primitiveCommandMap.begin(); it != primitiveCommandMap.end(); ) {
@@ -341,6 +358,9 @@ RTC::ReturnCode_t PrimitiveMotionLevelTorqueController::onExecute(RTC::UniqueId 
 
   // get primitive motion level command
   PrimitiveMotionLevelTorqueController::getPrimitiveCommand(instance_name, this->ports_, dt, this->primitiveCommandMap_);
+
+  // calc actual state from inport
+  PrimitiveMotionLevelTorqueController::calcActualRobot(instance_name, this->ports_, this->m_robot_act_);
 
   // get self collision states for collision avoidance
   PrimitiveMotionLevelTorqueController::getCollision(instance_name, this->ports_, this->collisions_);

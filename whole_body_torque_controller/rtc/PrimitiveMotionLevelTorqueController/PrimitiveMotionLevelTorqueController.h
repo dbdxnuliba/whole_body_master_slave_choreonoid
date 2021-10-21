@@ -176,6 +176,7 @@ protected:
   // static functions
   static void readPorts(const std::string& instance_name, PrimitiveMotionLevelTorqueController::Ports& port);
   static void calcReferenceRobot(const std::string& instance_name, const PrimitiveMotionLevelTorqueController::Ports& port, cnoid::BodyPtr& robot);
+  static void calcActualRobot(const std::string& instance_name, const PrimitiveMotionLevelTorqueController::Ports& port, cnoid::BodyPtr& robot);
   static void getPrimitiveCommand(const std::string& instance_name, const PrimitiveMotionLevelTorqueController::Ports& port, double dt, std::map<std::string, std::shared_ptr<PrimitiveMotionLevelTorque::PrimitiveCommand> >& primitiveCommandMap);
   static void getCollision(const std::string& instance_name, const PrimitiveMotionLevelTorqueController::Ports& port, std::vector<std::shared_ptr<PrimitiveMotionLevelTorque::Collision> >& collisions);
   static void processModeTransition(const std::string& instance_name, PrimitiveMotionLevelTorqueController::ControlMode& mode, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_com, PrimitiveMotionLevelTorqueController::OutputInterpolators& outputInterpolators, const std::vector<cnoid::LinkPtr>& useJoints);
