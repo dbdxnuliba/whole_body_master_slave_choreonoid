@@ -1,1 +1,1 @@
-add_subdirectory(PrimitiveMotionLevelTorqueController)
+add_subdirectory(WholeBodyTorqueController)

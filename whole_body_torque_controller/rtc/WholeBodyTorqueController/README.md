@@ -1,4 +1,4 @@
-# PrimitiveMotionLevelTorqueController
+# WholeBodyTorqueController
 
 ## InPort
 - `qRef` (RTC::TimedDoubleSeq) [REQUIRED]
@@ -12,4 +12,4 @@
 - `baseRpyCom` (RTC::TimedOrientation3D)
 
 ## ServiceServer
-- `service0` (whole_body_torque_controller::PrimitiveMotionLevelTorqueControllerService)
+- `service0` (whole_body_torque_controller::WholeBodyTorqueControllerService)

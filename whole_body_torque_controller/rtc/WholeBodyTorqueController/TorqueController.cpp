@@ -1,7 +1,7 @@
 #include "TorqueController.h"
 #include <cnoid/EigenUtil>
 
-namespace PrimitiveMotionLevelTorque {
+namespace WholeBodyTorque {
   TorqueController::PositionTask::PositionTask(const std::string& name) :
     name_(name),
     offset_(cnoid::Position::Identity()),
@@ -56,26 +56,26 @@ namespace PrimitiveMotionLevelTorque {
     this->positionTaskMap_.clear();
   }
 
-  void TorqueController::getPrimitiveCommand(const std::map<std::string, std::shared_ptr<PrimitiveMotionLevelTorque::PrimitiveCommand> >& primitiveCommandMap, std::map<std::string, std::shared_ptr<TorqueController::PositionTask> >& positionTaskMap) {
+  void TorqueController::getPrimitiveCommand(const std::map<std::string, std::shared_ptr<WholeBodyTorque::PrimitiveCommand> >& primitiveCommandMap, std::map<std::string, std::shared_ptr<TorqueController::PositionTask> >& positionTaskMap) {
     // 消滅したEndEffectorを削除
     for(std::map<std::string, std::shared_ptr<TorqueController::PositionTask> >::iterator it = positionTaskMap.begin(); it != positionTaskMap.end(); ) {
       if (primitiveCommandMap.find(it->first) == primitiveCommandMap.end()) it = positionTaskMap.erase(it);
       else ++it;
     }
     // 増加したEndEffectorの反映
-    for(std::map<std::string, std::shared_ptr<PrimitiveMotionLevelTorque::PrimitiveCommand> >::const_iterator it = primitiveCommandMap.begin(); it != primitiveCommandMap.end(); it++) {
+    for(std::map<std::string, std::shared_ptr<WholeBodyTorque::PrimitiveCommand> >::const_iterator it = primitiveCommandMap.begin(); it != primitiveCommandMap.end(); it++) {
       if(positionTaskMap.find(it->first)==positionTaskMap.end()){
         positionTaskMap[it->first] = std::make_shared<TorqueController::PositionTask>(it->first);
       }
     }
     // 各指令値の反映
-    for(std::map<std::string, std::shared_ptr<PrimitiveMotionLevelTorque::PrimitiveCommand> >::const_iterator it = primitiveCommandMap.begin(); it != primitiveCommandMap.end(); it++){
+    for(std::map<std::string, std::shared_ptr<WholeBodyTorque::PrimitiveCommand> >::const_iterator it = primitiveCommandMap.begin(); it != primitiveCommandMap.end(); it++){
       positionTaskMap[it->first]->updateFromPrimitiveCommand(it->second);
     }
   }
 
-  void TorqueController::control(const std::map<std::string, std::shared_ptr<PrimitiveMotionLevelTorque::PrimitiveCommand> >& primitiveCommandMap, // primitive motion level target
-                                   const std::vector<std::shared_ptr<PrimitiveMotionLevelTorque::Collision> >& collisions, // current self collision state
+  void TorqueController::control(const std::map<std::string, std::shared_ptr<WholeBodyTorque::PrimitiveCommand> >& primitiveCommandMap, // primitive motion level target
+                                   const std::vector<std::shared_ptr<WholeBodyTorque::Collision> >& collisions, // current self collision state
                                    const cnoid::BodyPtr& robot_ref, // command level target
                                    std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > >& jointLimitTablesMap,
                                    cnoid::BodyPtr& robot_com, //output

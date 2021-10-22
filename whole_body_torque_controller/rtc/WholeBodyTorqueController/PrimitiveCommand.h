@@ -1,11 +1,11 @@
-#ifndef PrimitiveMotionLevelTorqueController_PrimitiveCommand_H
-#define PrimitiveMotionLevelTorqueController_PrimitiveCommand_H
+#ifndef WholeBodyTorqueController_PrimitiveCommand_H
+#define WholeBodyTorqueController_PrimitiveCommand_H
 
 #include <cnoid/Body>
 #include <primitive_motion_level_msgs/idl/PrimitiveState.hh>
 #include <cpp_filters/TwoPointInterpolator.h>
 
-namespace PrimitiveMotionLevelTorque {
+namespace WholeBodyTorque {
   class PrimitiveCommand {
   public:
     PrimitiveCommand(const std::string& name);

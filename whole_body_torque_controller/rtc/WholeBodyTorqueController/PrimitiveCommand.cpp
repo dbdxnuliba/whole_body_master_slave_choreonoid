@@ -3,7 +3,7 @@
 #include <cnoid/EigenUtil>
 #include <iostream>
 
-namespace PrimitiveMotionLevelTorque {
+namespace WholeBodyTorque {
 
   PrimitiveCommand::PrimitiveCommand(const std::string& name) :
     name_(name),

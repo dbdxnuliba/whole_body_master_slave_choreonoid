@@ -1,5 +1,5 @@
-#ifndef PrimitiveMotionLevelTorqueController_H
-#define PrimitiveMotionLevelTorqueController_H
+#ifndef WholeBodyTorqueController_H
+#define WholeBodyTorqueController_H
 
 #include <memory>
 #include <map>
@@ -25,12 +25,12 @@
 
 #include <primitive_motion_level_msgs/idl/PrimitiveState.hh>
 #include <collision_checker_msgs/idl/Collision.hh>
-#include "PrimitiveMotionLevelTorqueControllerService_impl.h"
+#include "WholeBodyTorqueControllerService_impl.h"
 #include "PrimitiveCommand.h"
 #include "TorqueController.h"
 #include "Collision.h"
 
-class PrimitiveMotionLevelTorqueController : public RTC::DataFlowComponentBase{
+class WholeBodyTorqueController : public RTC::DataFlowComponentBase{
 public:
   class Ports {
   public:
@@ -55,7 +55,7 @@ public:
       m_basePoseActOut_("basePoseActOut", m_basePoseAct_),
       m_baseTformActOut_("baseTformActOut", m_baseTformAct_),
 
-      m_PrimitiveMotionLevelTorqueControllerServicePort_("PrimitiveMotionLevelTorqueControllerService") {
+      m_WholeBodyTorqueControllerServicePort_("WholeBodyTorqueControllerService") {
     }
 
     RTC::TimedDoubleSeq m_qRef_;
@@ -95,8 +95,8 @@ public:
     RTC::TimedDoubleSeq m_baseTformAct_; // for HrpsysSeqStateROSBridge
     RTC::OutPort<RTC::TimedDoubleSeq> m_baseTformActOut_; // for HrpsysSeqStateROSBridge
 
-    PrimitiveMotionLevelTorqueControllerService_impl m_service0_;
-    RTC::CorbaPort m_PrimitiveMotionLevelTorqueControllerServicePort_;
+    WholeBodyTorqueControllerService_impl m_service0_;
+    RTC::CorbaPort m_WholeBodyTorqueControllerServicePort_;
   };
 
   class ControlMode{
@@ -136,7 +136,7 @@ public:
   };
 
 public:
-  PrimitiveMotionLevelTorqueController(RTC::Manager* manager);
+  WholeBodyTorqueController(RTC::Manager* manager);
   virtual RTC::ReturnCode_t onInitialize();
   virtual RTC::ReturnCode_t onFinalize();
   virtual RTC::ReturnCode_t onActivated(RTC::UniqueId ec_id);
@@ -144,8 +144,8 @@ public:
   virtual RTC::ReturnCode_t onExecute(RTC::UniqueId ec_id);
   bool startControl();
   bool stopControl();
-  bool setParams(const whole_body_torque_controller::PrimitiveMotionLevelTorqueControllerService::PrimitiveMotionLevelTorqueControllerParam& i_param);
-  bool getParams(whole_body_torque_controller::PrimitiveMotionLevelTorqueControllerService::PrimitiveMotionLevelTorqueControllerParam& i_param);
+  bool setParams(const whole_body_torque_controller::WholeBodyTorqueControllerService::WholeBodyTorqueControllerParam& i_param);
+  bool getParams(whole_body_torque_controller::WholeBodyTorqueControllerService::WholeBodyTorqueControllerParam& i_param);
 
 protected:
   std::mutex mutex_;
@@ -167,30 +167,30 @@ protected:
   std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > > jointLimitTablesMap_;
 
   // 1. portから受け取ったprimitive motion level 指令など
-  std::map<std::string, std::shared_ptr<PrimitiveMotionLevelTorque::PrimitiveCommand> > primitiveCommandMap_;
-  std::vector<std::shared_ptr<PrimitiveMotionLevelTorque::Collision> > collisions_;
+  std::map<std::string, std::shared_ptr<WholeBodyTorque::PrimitiveCommand> > primitiveCommandMap_;
+  std::vector<std::shared_ptr<WholeBodyTorque::Collision> > collisions_;
 
   // 2. primitiveCommandMap_を受け取り、m_robot_comを計算する
-  PrimitiveMotionLevelTorque::TorqueController torqueController_;
+  WholeBodyTorque::TorqueController torqueController_;
 
   // static functions
-  static void readPorts(const std::string& instance_name, PrimitiveMotionLevelTorqueController::Ports& port);
-  static void calcReferenceRobot(const std::string& instance_name, const PrimitiveMotionLevelTorqueController::Ports& port, cnoid::BodyPtr& robot);
-  static void calcActualRobot(const std::string& instance_name, const PrimitiveMotionLevelTorqueController::Ports& port, cnoid::BodyPtr& robot);
-  static void getPrimitiveCommand(const std::string& instance_name, const PrimitiveMotionLevelTorqueController::Ports& port, double dt, std::map<std::string, std::shared_ptr<PrimitiveMotionLevelTorque::PrimitiveCommand> >& primitiveCommandMap);
-  static void getCollision(const std::string& instance_name, const PrimitiveMotionLevelTorqueController::Ports& port, std::vector<std::shared_ptr<PrimitiveMotionLevelTorque::Collision> >& collisions);
-  static void processModeTransition(const std::string& instance_name, PrimitiveMotionLevelTorqueController::ControlMode& mode, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_com, PrimitiveMotionLevelTorqueController::OutputInterpolators& outputInterpolators, const std::vector<cnoid::LinkPtr>& useJoints);
-  static void preProcessForControl(const std::string& instance_name, PrimitiveMotionLevelTorque::TorqueController& torqueController);
-  static void calcq(const std::string& instance_name, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_act, cnoid::BodyPtr& robot_com, PrimitiveMotionLevelTorqueController::OutputInterpolators& outputInterpolators, double dt, const std::vector<cnoid::LinkPtr>& useJoints=std::vector<cnoid::LinkPtr>());
-  static void calcOutputPorts(const std::string& instance_name, PrimitiveMotionLevelTorqueController::Ports& port, const cnoid::BodyPtr& robot_com, const cnoid::BodyPtr& robot_act, PrimitiveMotionLevelTorqueController::OutputInterpolators& outputInterpolators, double dt);
-  static void enableJoint(const cnoid::LinkPtr& joint_com, PrimitiveMotionLevelTorqueController::OutputInterpolators& outputInterpolators);
-  static void disableJoint(const cnoid::LinkPtr& joint_com, const cnoid::BodyPtr& robot_ref, PrimitiveMotionLevelTorqueController::OutputInterpolators& outputInterpolators);
+  static void readPorts(const std::string& instance_name, WholeBodyTorqueController::Ports& port);
+  static void calcReferenceRobot(const std::string& instance_name, const WholeBodyTorqueController::Ports& port, cnoid::BodyPtr& robot);
+  static void calcActualRobot(const std::string& instance_name, const WholeBodyTorqueController::Ports& port, cnoid::BodyPtr& robot);
+  static void getPrimitiveCommand(const std::string& instance_name, const WholeBodyTorqueController::Ports& port, double dt, std::map<std::string, std::shared_ptr<WholeBodyTorque::PrimitiveCommand> >& primitiveCommandMap);
+  static void getCollision(const std::string& instance_name, const WholeBodyTorqueController::Ports& port, std::vector<std::shared_ptr<WholeBodyTorque::Collision> >& collisions);
+  static void processModeTransition(const std::string& instance_name, WholeBodyTorqueController::ControlMode& mode, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_com, WholeBodyTorqueController::OutputInterpolators& outputInterpolators, const std::vector<cnoid::LinkPtr>& useJoints);
+  static void preProcessForControl(const std::string& instance_name, WholeBodyTorque::TorqueController& torqueController);
+  static void calcq(const std::string& instance_name, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_act, cnoid::BodyPtr& robot_com, WholeBodyTorqueController::OutputInterpolators& outputInterpolators, double dt, const std::vector<cnoid::LinkPtr>& useJoints=std::vector<cnoid::LinkPtr>());
+  static void calcOutputPorts(const std::string& instance_name, WholeBodyTorqueController::Ports& port, const cnoid::BodyPtr& robot_com, const cnoid::BodyPtr& robot_act, WholeBodyTorqueController::OutputInterpolators& outputInterpolators, double dt);
+  static void enableJoint(const cnoid::LinkPtr& joint_com, WholeBodyTorqueController::OutputInterpolators& outputInterpolators);
+  static void disableJoint(const cnoid::LinkPtr& joint_com, const cnoid::BodyPtr& robot_ref, WholeBodyTorqueController::OutputInterpolators& outputInterpolators);
 };
 
 
 extern "C"
 {
-  void PrimitiveMotionLevelTorqueControllerInit(RTC::Manager* manager);
+  void WholeBodyTorqueControllerInit(RTC::Manager* manager);
 };
 
-#endif // PrimitiveMotionLevelTorqueController_H
+#endif // WholeBodyTorqueController_H

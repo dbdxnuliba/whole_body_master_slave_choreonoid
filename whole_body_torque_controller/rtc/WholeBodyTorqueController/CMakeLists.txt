@@ -26,19 +26,19 @@ foreach(lib ${CHOREONOID_BODY_LIBRARIES})
   set(CHOREONOID_BODY_LIBRARIES_ABS ${CHOREONOID_BODY_LIBRARIES_ABS} ${${lib}_abs})
 endforeach(lib)
 
-rtmbuild_add_library(PrimitiveMotionLevelTorqueController SHARED
-  PrimitiveMotionLevelTorqueController.cpp
-  PrimitiveMotionLevelTorqueControllerService_impl.cpp
+rtmbuild_add_library(WholeBodyTorqueController SHARED
+  WholeBodyTorqueController.cpp
+  WholeBodyTorqueControllerService_impl.cpp
   PrimitiveCommand.cpp
   Collision.cpp
   TorqueController.cpp
   )
-target_link_libraries(PrimitiveMotionLevelTorqueController
+target_link_libraries(WholeBodyTorqueController
   ${catkin_LIBRARIES}
   ${CHOREONOID_BODY_LIBRARIES_ABS}
   )
-set_target_properties(PrimitiveMotionLevelTorqueController PROPERTIES PREFIX "")
-add_dependencies(PrimitiveMotionLevelTorqueController RTMBUILD_${PROJECT_NAME}_genrpc) # wait for rtmbuild_genidl
+set_target_properties(WholeBodyTorqueController PROPERTIES PREFIX "")
+add_dependencies(WholeBodyTorqueController RTMBUILD_${PROJECT_NAME}_genrpc) # wait for rtmbuild_genidl
 
-rtmbuild_add_executable(PrimitiveMotionLevelTorqueControllerComp PrimitiveMotionLevelTorqueControllerComp.cpp)
-target_link_libraries(PrimitiveMotionLevelTorqueControllerComp PrimitiveMotionLevelTorqueController)
+rtmbuild_add_executable(WholeBodyTorqueControllerComp WholeBodyTorqueControllerComp.cpp)
+target_link_libraries(WholeBodyTorqueControllerComp WholeBodyTorqueController)
