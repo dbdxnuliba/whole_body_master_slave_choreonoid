@@ -1,0 +1,22 @@
+- git:
+    local-name: choreonoid
+    uri: https://github.com/choreonoid/choreonoid.git
+    version: release-1.7
+- git:
+    local-name: cpp_filters
+    uri: git@github.com:Naoki-Hiraoka/cpp_filters.git
+- git:
+    local-name: ik_solvers
+    uri: git@github.com:Naoki-Hiraoka/ik_solvers.git
+- git:
+    local-name: joint_limit_table
+    uri: https://github.com/Naoki-Hiraoka/joint_limit_table.git
+- git:
+    local-name: collision_checker_rtc
+    uri: https://github.com/Naoki-Hiraoka/collision_checker_rtc.git
+- git:
+    local-name: prioritized_qp
+    uri: https://github.com/Naoki-Hiraoka/prioritized_qp.git
+- git:
+    local-name: qp_solvers
+    uri: https://github.com/Naoki-Hiraoka/qp_solvers.git

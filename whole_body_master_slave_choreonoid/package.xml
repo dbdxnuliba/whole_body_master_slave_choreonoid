@@ -13,11 +13,6 @@
   <depend>roscpp</depend>
   <depend>rtmbuild</depend>
 
-  <depend>fullbody_inverse_kinematics_solver</depend>
-  <depend>prioritized_inverse_kinematics_solver</depend>
-  <depend>cpp_filters</depend>
-  <depend>ik_constraint_joint_limit_table</depend>
-  <depend>collision_checker_msgs</depend>
   <depend>primitive_motion_level_msgs</depend>
   <depend>primitive_motion_level_tools</depend>
   <depend>static_equilibuim_test</depend>
