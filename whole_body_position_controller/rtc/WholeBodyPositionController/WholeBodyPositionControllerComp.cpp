@@ -10,15 +10,15 @@
 #include <rtm/Manager.h>
 #include <iostream>
 #include <string>
-#include "PrimitiveMotionLevelController.h"
+#include "WholeBodyPositionController.h"
 
 void MyModuleInit(RTC::Manager* manager)
 {
-  PrimitiveMotionLevelControllerInit(manager);
+  WholeBodyPositionControllerInit(manager);
   RTC::RtcBase* comp;
 
   // Create a component
-  comp = manager->createComponent("PrimitiveMotionLevelController");
+  comp = manager->createComponent("WholeBodyPositionController");
 
   return;
 }

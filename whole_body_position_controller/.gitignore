@@ -1,0 +1,3 @@
+src_gen/*
+msg/whole_body_position_controller*
+srv/whole_body_position_controller*

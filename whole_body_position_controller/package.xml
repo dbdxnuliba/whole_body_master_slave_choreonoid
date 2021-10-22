@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>whole_body_position_controller</name>
+  <version>0.0.0</version>
+  <description>The whole_body_position_controller package</description>
+
+  <maintainer email="hiraoka@jsk.imi.i.u-tokyo.ac.jp">Naoki-Hiraoka</maintainer>
+
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>roscpp</depend>
+  <depend>rtmbuild</depend>
+
+  <depend>fullbody_inverse_kinematics_solver</depend>
+  <depend>prioritized_inverse_kinematics_solver</depend>
+  <depend>cpp_filters</depend>
+  <depend>ik_constraint_joint_limit_table</depend>
+  <depend>collision_checker_msgs</depend>
+  <depend>primitive_motion_level_msgs</depend>
+  <depend>primitive_motion_level_tools</depend>
+</package>

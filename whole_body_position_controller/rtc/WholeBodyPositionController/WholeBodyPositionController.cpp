@@ -1,4 +1,4 @@
-#include "PrimitiveMotionLevelController.h"
+#include "WholeBodyPositionController.h"
 #include <cnoid/BodyLoader>
 #include <cnoid/ForceSensor>
 #include <cnoid/AccelerationSensor>
@@ -7,9 +7,9 @@
 #define DEBUGP (loop%200==0)
 #define DEBUGP_ONCE (loop==0)
 
-static const char* PrimitiveMotionLevelController_spec[] = {
-  "implementation_id", "PrimitiveMotionLevelController",
-  "type_name",         "PrimitiveMotionLevelController",
+static const char* WholeBodyPositionController_spec[] = {
+  "implementation_id", "WholeBodyPositionController",
+  "type_name",         "WholeBodyPositionController",
   "description",       "wholebodymasterslave component",
   "version",           "0.0",
   "vendor",            "Naoki-Hiraoka",
@@ -21,14 +21,14 @@ static const char* PrimitiveMotionLevelController_spec[] = {
   ""
 };
 
-PrimitiveMotionLevelController::PrimitiveMotionLevelController(RTC::Manager* manager) : RTC::DataFlowComponentBase(manager),
+WholeBodyPositionController::WholeBodyPositionController(RTC::Manager* manager) : RTC::DataFlowComponentBase(manager),
   ports_(),
   debugLevel_(0)
 {
   this->ports_.m_service0_.setComp(this);
 }
 
-RTC::ReturnCode_t PrimitiveMotionLevelController::onInitialize(){
+RTC::ReturnCode_t WholeBodyPositionController::onInitialize(){
 
   addInPort("qRefIn", this->ports_.m_qRefIn_);// from sh
   addInPort("basePosRefIn", this->ports_.m_basePosRefIn_);
@@ -41,8 +41,8 @@ RTC::ReturnCode_t PrimitiveMotionLevelController::onInitialize(){
   addOutPort("basePoseComOut", this->ports_.m_basePoseComOut_);
   addOutPort("baseTformComOut", this->ports_.m_baseTformComOut_);
   addOutPort("primitiveCommandComOut", this->ports_.m_primitiveCommandComOut_);
-  this->ports_.m_PrimitiveMotionLevelControllerServicePort_.registerProvider("service0", "PrimitiveMotionLevelControllerService", this->ports_.m_service0_);
-  addPort(this->ports_.m_PrimitiveMotionLevelControllerServicePort_);
+  this->ports_.m_WholeBodyPositionControllerServicePort_.registerProvider("service0", "WholeBodyPositionControllerService", this->ports_.m_service0_);
+  addPort(this->ports_.m_WholeBodyPositionControllerServicePort_);
 
   this->loop_ = 0;
 
@@ -97,7 +97,7 @@ RTC::ReturnCode_t PrimitiveMotionLevelController::onInitialize(){
   return RTC::RTC_OK;
 }
 
-void PrimitiveMotionLevelController::readPorts(const std::string& instance_name, PrimitiveMotionLevelController::Ports& port) {
+void WholeBodyPositionController::readPorts(const std::string& instance_name, WholeBodyPositionController::Ports& port) {
   if(port.m_qRefIn_.isNew()) port.m_qRefIn_.read();
   if(port.m_basePosRefIn_.isNew()) port.m_basePosRefIn_.read();
   if(port.m_baseRpyRefIn_.isNew()) port.m_baseRpyRefIn_.read();
@@ -106,7 +106,7 @@ void PrimitiveMotionLevelController::readPorts(const std::string& instance_name,
 }
 
   // calc reference state (without ee. q, basepos and baserpy only)
-void PrimitiveMotionLevelController::calcReferenceRobot(const std::string& instance_name, const PrimitiveMotionLevelController::Ports& port, cnoid::BodyPtr& robot) {
+void WholeBodyPositionController::calcReferenceRobot(const std::string& instance_name, const WholeBodyPositionController::Ports& port, cnoid::BodyPtr& robot) {
   if(port.m_qRef_.data.length() == robot->numJoints()){
     for ( int i = 0; i < robot->numJoints(); i++ ){
       robot->joint(i)->q() = port.m_qRef_.data[i];
@@ -120,7 +120,7 @@ void PrimitiveMotionLevelController::calcReferenceRobot(const std::string& insta
   robot->calcCenterOfMass();
 }
 
-void PrimitiveMotionLevelController::getPrimitiveCommand(const std::string& instance_name, const PrimitiveMotionLevelController::Ports& port, double dt, std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap) {
+void WholeBodyPositionController::getPrimitiveCommand(const std::string& instance_name, const WholeBodyPositionController::Ports& port, double dt, std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap) {
   // 消滅したEndEffectorを削除
   for(std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >::iterator it = primitiveCommandMap.begin(); it != primitiveCommandMap.end(); ) {
     bool found = false;
@@ -145,24 +145,24 @@ void PrimitiveMotionLevelController::getPrimitiveCommand(const std::string& inst
   }
 }
 
-void PrimitiveMotionLevelController::getCollision(const std::string& instance_name, const PrimitiveMotionLevelController::Ports& port, std::vector<std::shared_ptr<PrimitiveMotionLevel::Collision> >& collisions) {
+void WholeBodyPositionController::getCollision(const std::string& instance_name, const WholeBodyPositionController::Ports& port, std::vector<std::shared_ptr<WholeBodyPosition::Collision> >& collisions) {
   collisions.resize(port.m_collisionCom_.data.length());
   // 各collisionの反映
   for(size_t i=0;i<port.m_collisionCom_.data.length();i++){
     const collision_checker_msgs::CollisionIdl& idl = port.m_collisionCom_.data[i];
-    if(!collisions[i]) collisions[i] = std::make_shared<PrimitiveMotionLevel::Collision>();
+    if(!collisions[i]) collisions[i] = std::make_shared<WholeBodyPosition::Collision>();
     collisions[i]->updateFromIdl(idl);
   }
 }
 
 
-void PrimitiveMotionLevelController::processModeTransition(const std::string& instance_name, PrimitiveMotionLevelController::ControlMode& mode, const double dt, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_com, PrimitiveMotionLevelController::OutputOffsetInterpolators& outputOffsetInterpolators){
+void WholeBodyPositionController::processModeTransition(const std::string& instance_name, WholeBodyPositionController::ControlMode& mode, const double dt, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_com, WholeBodyPositionController::OutputOffsetInterpolators& outputOffsetInterpolators){
   switch(mode.now()){
-  case PrimitiveMotionLevelController::ControlMode::MODE_SYNC_TO_CONTROL:
-    mode.setNextMode(PrimitiveMotionLevelController::ControlMode::MODE_CONTROL);
+  case WholeBodyPositionController::ControlMode::MODE_SYNC_TO_CONTROL:
+    mode.setNextMode(WholeBodyPositionController::ControlMode::MODE_CONTROL);
     break;
-  case PrimitiveMotionLevelController::ControlMode::MODE_SYNC_TO_IDLE:
-    if(mode.pre() == PrimitiveMotionLevelController::ControlMode::MODE_CONTROL){
+  case WholeBodyPositionController::ControlMode::MODE_SYNC_TO_IDLE:
+    if(mode.pre() == WholeBodyPositionController::ControlMode::MODE_CONTROL){
       outputOffsetInterpolators.rootpInterpolator_->reset(robot_com->rootLink()->p()-robot_ref->rootLink()->p(),cnoid::Vector3::Zero(),cnoid::Vector3::Zero());
       outputOffsetInterpolators.rootpInterpolator_->setGoal(cnoid::Vector3::Zero(), 3.0);
       outputOffsetInterpolators.rootRInterpolator_->reset(robot_com->rootLink()->R()*robot_ref->rootLink()->R().transpose(),cnoid::Vector3::Zero(),cnoid::Vector3::Zero());
@@ -172,17 +172,17 @@ void PrimitiveMotionLevelController::processModeTransition(const std::string& in
         outputOffsetInterpolators.jointInterpolatorMap_[robot_com->joint(i)]->setGoal(0.0,3.0);
       }
     }
-    mode.setNextMode(PrimitiveMotionLevelController::ControlMode::MODE_IDLE);
+    mode.setNextMode(WholeBodyPositionController::ControlMode::MODE_IDLE);
     break;
   }
   mode.update();
 }
 
-void PrimitiveMotionLevelController::preProcessForControl(const std::string& instance_name, PrimitiveMotionLevel::PositionController& positionController) {
+void WholeBodyPositionController::preProcessForControl(const std::string& instance_name, WholeBodyPosition::PositionController& positionController) {
   positionController.reset();
 }
 
-void PrimitiveMotionLevelController::passThrough(const std::string& instance_name, const cnoid::BodyPtr& robot_ref, cnoid::BodyPtr& robot_com, PrimitiveMotionLevelController::OutputOffsetInterpolators& outputOffsetInterpolators, double dt, const std::vector<cnoid::LinkPtr>& useJoints){
+void WholeBodyPositionController::passThrough(const std::string& instance_name, const cnoid::BodyPtr& robot_ref, cnoid::BodyPtr& robot_com, WholeBodyPositionController::OutputOffsetInterpolators& outputOffsetInterpolators, double dt, const std::vector<cnoid::LinkPtr>& useJoints){
   if(std::find(useJoints.begin(), useJoints.end(), robot_com->rootLink()) == useJoints.end()){
     cnoid::Vector3 offsetp = cnoid::Vector3::Zero();
     if (!outputOffsetInterpolators.rootpInterpolator_->isEmpty()) outputOffsetInterpolators.rootpInterpolator_->get(offsetp, dt);
@@ -207,7 +207,7 @@ void PrimitiveMotionLevelController::passThrough(const std::string& instance_nam
   robot_com->calcCenterOfMass();
 }
 
-void PrimitiveMotionLevelController::calcOutputPorts(const std::string& instance_name, PrimitiveMotionLevelController::Ports& port, const cnoid::BodyPtr& robot_com, std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap) {
+void WholeBodyPositionController::calcOutputPorts(const std::string& instance_name, WholeBodyPositionController::Ports& port, const cnoid::BodyPtr& robot_com, std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap) {
   // qCom
   if (port.m_qRef_.data.length() == robot_com->numJoints()){
     port.m_qCom_.data.length(robot_com->numJoints());
@@ -269,51 +269,51 @@ void PrimitiveMotionLevelController::calcOutputPorts(const std::string& instance
   port.m_primitiveCommandComOut_.write();
 }
 
-RTC::ReturnCode_t PrimitiveMotionLevelController::onExecute(RTC::UniqueId ec_id){
+RTC::ReturnCode_t WholeBodyPositionController::onExecute(RTC::UniqueId ec_id){
   std::lock_guard<std::mutex> guard(this->mutex_);
 
   std::string instance_name = std::string(this->m_profile.instance_name);
   double dt = 1.0 / this->get_context(ec_id)->get_rate();
 
   // read ports
-  PrimitiveMotionLevelController::readPorts(instance_name, this->ports_);
+  WholeBodyPositionController::readPorts(instance_name, this->ports_);
 
   // calc reference state from inport (without ee. q, basepos and baserpy only)
-  PrimitiveMotionLevelController::calcReferenceRobot(instance_name, this->ports_, this->m_robot_ref_);
+  WholeBodyPositionController::calcReferenceRobot(instance_name, this->ports_, this->m_robot_ref_);
 
   // get primitive motion level command
-  PrimitiveMotionLevelController::getPrimitiveCommand(instance_name, this->ports_, dt, this->primitiveCommandMap_);
+  WholeBodyPositionController::getPrimitiveCommand(instance_name, this->ports_, dt, this->primitiveCommandMap_);
 
   // get self collision states for collision avoidance
-  PrimitiveMotionLevelController::getCollision(instance_name, this->ports_, this->collisions_);
+  WholeBodyPositionController::getCollision(instance_name, this->ports_, this->collisions_);
 
   // mode遷移を実行
-  PrimitiveMotionLevelController::processModeTransition(instance_name, this->mode_, dt, this->m_robot_ref_, this->m_robot_com_, this->outputOffsetInterpolators_);
+  WholeBodyPositionController::processModeTransition(instance_name, this->mode_, dt, this->m_robot_ref_, this->m_robot_com_, this->outputOffsetInterpolators_);
 
   if(this->mode_.isRunning()) {
     // use_joints以外はrobot_refをrobot_comへ
-    PrimitiveMotionLevelController::passThrough(instance_name, this->m_robot_ref_, this->m_robot_com_, this->outputOffsetInterpolators_, dt, this->useJoints_);
+    WholeBodyPositionController::passThrough(instance_name, this->m_robot_ref_, this->m_robot_com_, this->outputOffsetInterpolators_, dt, this->useJoints_);
 
     if(this->mode_.isInitialize()){
-      PrimitiveMotionLevelController::preProcessForControl(instance_name, this->positionController_);
+      WholeBodyPositionController::preProcessForControl(instance_name, this->positionController_);
     }
 
     this->positionController_.control(this->primitiveCommandMap_, this->collisions_, this->m_robot_ref_, this->jointLimitTablesMap_, this->m_robot_com_, dt, this->debugLevel_);
 
   } else {
     // robot_refをrobot_comへ
-    PrimitiveMotionLevelController::passThrough(instance_name, this->m_robot_ref_, this->m_robot_com_, this->outputOffsetInterpolators_, dt);
+    WholeBodyPositionController::passThrough(instance_name, this->m_robot_ref_, this->m_robot_com_, this->outputOffsetInterpolators_, dt);
   }
 
   // write outport
-  PrimitiveMotionLevelController::calcOutputPorts(instance_name, this->ports_, this->m_robot_com_, this->primitiveCommandMap_);
+  WholeBodyPositionController::calcOutputPorts(instance_name, this->ports_, this->m_robot_com_, this->primitiveCommandMap_);
 
   this->loop_++;
   return RTC::RTC_OK;
 }
 
 
-bool PrimitiveMotionLevelController::startControl(){
+bool WholeBodyPositionController::startControl(){
   std::lock_guard<std::mutex> guard(this->mutex_);
   if(this->mode_.now() == ControlMode::MODE_IDLE){
     std::cerr << "[" << m_profile.instance_name << "] "<< "startControl" << std::endl;
@@ -326,7 +326,7 @@ bool PrimitiveMotionLevelController::startControl(){
 }
 
 
-bool PrimitiveMotionLevelController::stopControl(){
+bool WholeBodyPositionController::stopControl(){
   std::lock_guard<std::mutex> guard(this->mutex_);
   if(this->mode_.now() == ControlMode::MODE_CONTROL ){
     std::cerr << "[" << m_profile.instance_name << "] "<< "stopControl" << std::endl;
@@ -338,7 +338,7 @@ bool PrimitiveMotionLevelController::stopControl(){
   }
 }
 
-bool PrimitiveMotionLevelController::setParams(const whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param){
+bool WholeBodyPositionController::setParams(const whole_body_position_controller::WholeBodyPositionControllerService::WholeBodyPositionControllerParam& i_param){
   std::lock_guard<std::mutex> guard(this->mutex_);
   std::cerr << "[" << m_profile.instance_name << "] "<< "setParams" << std::endl;
   this->debugLevel_ = i_param.debugLevel;
@@ -365,12 +365,12 @@ bool PrimitiveMotionLevelController::setParams(const whole_body_master_slave_cho
   this->useJoints_ = useJointsNew;
 
   switch(i_param.solveMode){
-  case whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::SolveModeEnum::MODE_FULLBODY:
-    this->positionController_.solveMode() = PrimitiveMotionLevel::PositionController::MODE_FULLBODY;
+  case whole_body_position_controller::WholeBodyPositionControllerService::SolveModeEnum::MODE_FULLBODY:
+    this->positionController_.solveMode() = WholeBodyPosition::PositionController::MODE_FULLBODY;
     break;
-  case whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::SolveModeEnum::MODE_PRIORITIZED:
+  case whole_body_position_controller::WholeBodyPositionControllerService::SolveModeEnum::MODE_PRIORITIZED:
   default:
-    this->positionController_.solveMode() = PrimitiveMotionLevel::PositionController::MODE_PRIORITIZED;
+    this->positionController_.solveMode() = WholeBodyPosition::PositionController::MODE_PRIORITIZED;
     break;
   }
   this->positionController_.followRootLink() = i_param.followRootLink;
@@ -378,7 +378,7 @@ bool PrimitiveMotionLevelController::setParams(const whole_body_master_slave_cho
 }
 
 
-bool PrimitiveMotionLevelController::getParams(whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param){
+bool WholeBodyPositionController::getParams(whole_body_position_controller::WholeBodyPositionControllerService::WholeBodyPositionControllerParam& i_param){
   std::lock_guard<std::mutex> guard(this->mutex_);
   std::cerr << "[" << m_profile.instance_name << "] "<< "getParams" << std::endl;
   i_param.debugLevel = this->debugLevel_;
@@ -386,31 +386,31 @@ bool PrimitiveMotionLevelController::getParams(whole_body_master_slave_choreonoi
   for(int i=0;i<this->useJoints_.size();i++) i_param.useJoints[i] = this->useJoints_[i]->name().c_str();
 
   switch(this->positionController_.solveMode()){
-  case PrimitiveMotionLevel::PositionController::MODE_FULLBODY:
-    i_param.solveMode = whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::SolveModeEnum::MODE_FULLBODY;
+  case WholeBodyPosition::PositionController::MODE_FULLBODY:
+    i_param.solveMode = whole_body_position_controller::WholeBodyPositionControllerService::SolveModeEnum::MODE_FULLBODY;
     break;
-  case PrimitiveMotionLevel::PositionController::MODE_PRIORITIZED:
+  case WholeBodyPosition::PositionController::MODE_PRIORITIZED:
   default:
-    i_param.solveMode = whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::SolveModeEnum::MODE_PRIORITIZED;
+    i_param.solveMode = whole_body_position_controller::WholeBodyPositionControllerService::SolveModeEnum::MODE_PRIORITIZED;
     break;
   }
   i_param.followRootLink = this->positionController_.followRootLink();
   return true;
 }
 
-RTC::ReturnCode_t PrimitiveMotionLevelController::onActivated(RTC::UniqueId ec_id){
+RTC::ReturnCode_t WholeBodyPositionController::onActivated(RTC::UniqueId ec_id){
   std::cerr << "[" << m_profile.instance_name << "] "<< "onActivated(" << ec_id << ")" << std::endl;
   return RTC::RTC_OK;
 }
-RTC::ReturnCode_t PrimitiveMotionLevelController::onDeactivated(RTC::UniqueId ec_id){
+RTC::ReturnCode_t WholeBodyPositionController::onDeactivated(RTC::UniqueId ec_id){
   std::cerr << "[" << m_profile.instance_name << "] "<< "onDeactivated(" << ec_id << ")" << std::endl;
   return RTC::RTC_OK;
 }
-RTC::ReturnCode_t PrimitiveMotionLevelController::onFinalize(){ return RTC::RTC_OK; }
+RTC::ReturnCode_t WholeBodyPositionController::onFinalize(){ return RTC::RTC_OK; }
 
 extern "C"{
-    void PrimitiveMotionLevelControllerInit(RTC::Manager* manager) {
-        RTC::Properties profile(PrimitiveMotionLevelController_spec);
-        manager->registerFactory(profile, RTC::Create<PrimitiveMotionLevelController>, RTC::Delete<PrimitiveMotionLevelController>);
+    void WholeBodyPositionControllerInit(RTC::Manager* manager) {
+        RTC::Properties profile(WholeBodyPositionController_spec);
+        manager->registerFactory(profile, RTC::Create<WholeBodyPositionController>, RTC::Delete<WholeBodyPositionController>);
     }
 };

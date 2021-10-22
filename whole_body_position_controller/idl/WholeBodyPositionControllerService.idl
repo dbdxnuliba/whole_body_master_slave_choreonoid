@@ -1,0 +1,31 @@
+/**
+ * @file WholeBodyPositionControllerService.idl
+ * @brief Services for the WholeBodyPositionController interface
+ */
+#include "ExtendedDataTypes.idl" // openrtm
+module whole_body_position_controller
+{
+  interface WholeBodyPositionControllerService
+  {
+    enum SolveModeEnum {
+      MODE_FULLBODY,
+      MODE_PRIORITIZED
+    };
+
+    struct WholeBodyPositionControllerParam
+    {
+      // RTC setting
+      long debugLevel;
+      sequence<string> useJoints;
+
+      // PositionController setting
+      SolveModeEnum solveMode;
+      boolean followRootLink;
+    };
+    void setParams(in WholeBodyPositionControllerParam i_param);
+    void getParams(out WholeBodyPositionControllerParam i_param);
+
+    boolean startControl();
+    boolean stopControl();
+  };
+};

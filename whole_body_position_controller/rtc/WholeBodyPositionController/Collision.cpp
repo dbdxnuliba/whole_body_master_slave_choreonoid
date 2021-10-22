@@ -3,7 +3,7 @@
 #include <cnoid/EigenUtil>
 #include <iostream>
 
-namespace PrimitiveMotionLevel {
+namespace WholeBodyPosition {
   void Collision::updateFromIdl(const collision_checker_msgs::CollisionIdl& idl) {
     this->link1_ = idl.link1;
     this->link2_ = idl.link2;

@@ -30,19 +30,19 @@ foreach(lib ${CHOREONOID_BODY_LIBRARIES})
   set(CHOREONOID_BODY_LIBRARIES_ABS ${CHOREONOID_BODY_LIBRARIES_ABS} ${${lib}_abs})
 endforeach(lib)
 
-rtmbuild_add_library(PrimitiveMotionLevelController SHARED
-  PrimitiveMotionLevelController.cpp
-  PrimitiveMotionLevelControllerService_impl.cpp
+rtmbuild_add_library(WholeBodyPositionController SHARED
+  WholeBodyPositionController.cpp
+  WholeBodyPositionControllerService_impl.cpp
   Collision.cpp
   PositionController.cpp
   )
-target_link_libraries(PrimitiveMotionLevelController
+target_link_libraries(WholeBodyPositionController
   ${catkin_LIBRARIES}
   ${CHOREONOID_BODY_LIBRARIES_ABS}
   OsqpEigen::OsqpEigen
   )
-set_target_properties(PrimitiveMotionLevelController PROPERTIES PREFIX "")
-add_dependencies(PrimitiveMotionLevelController RTMBUILD_${PROJECT_NAME}_genrpc) # wait for rtmbuild_genidl
+set_target_properties(WholeBodyPositionController PROPERTIES PREFIX "")
+add_dependencies(WholeBodyPositionController RTMBUILD_${PROJECT_NAME}_genrpc) # wait for rtmbuild_genidl
 
-rtmbuild_add_executable(PrimitiveMotionLevelControllerComp PrimitiveMotionLevelControllerComp.cpp)
-target_link_libraries(PrimitiveMotionLevelControllerComp PrimitiveMotionLevelController)
+rtmbuild_add_executable(WholeBodyPositionControllerComp WholeBodyPositionControllerComp.cpp)
+target_link_libraries(WholeBodyPositionControllerComp WholeBodyPositionController)

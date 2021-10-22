@@ -1,7 +1,7 @@
 #include "PositionController.h"
 #include <cnoid/EigenUtil>
 
-namespace PrimitiveMotionLevel {
+namespace WholeBodyPosition {
   PositionController::PositionTask::PositionTask(const std::string& name) :
     name_(name),
     offset_(cnoid::Position::Identity()),
@@ -266,7 +266,7 @@ namespace PrimitiveMotionLevel {
     iKConstraints.push_back(cOMVelocityConstraint);
   }
 
-  void PositionController::getCollisionIKConstraints(std::vector<std::shared_ptr<IK::ClientCollisionConstraint> >& collisionConstraints, std::vector<std::shared_ptr<IK::IKConstraint> >& collisionIKConstraints, const cnoid::BodyPtr& robot_com, const std::vector<std::shared_ptr<PrimitiveMotionLevel::Collision> >& collisions, double dt, double weight){
+  void PositionController::getCollisionIKConstraints(std::vector<std::shared_ptr<IK::ClientCollisionConstraint> >& collisionConstraints, std::vector<std::shared_ptr<IK::IKConstraint> >& collisionIKConstraints, const cnoid::BodyPtr& robot_com, const std::vector<std::shared_ptr<WholeBodyPosition::Collision> >& collisions, double dt, double weight){
     collisionConstraints.resize(collisions.size());
     for(size_t i=0;i<collisionConstraints.size();i++){
       if(!collisionConstraints[i]) collisionConstraints[i] = std::make_shared<IK::ClientCollisionConstraint>();
@@ -287,7 +287,7 @@ namespace PrimitiveMotionLevel {
   }
 
   void PositionController::control(const std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap, // primitive motion level target
-                                   const std::vector<std::shared_ptr<PrimitiveMotionLevel::Collision> >& collisions, // current self collision state
+                                   const std::vector<std::shared_ptr<WholeBodyPosition::Collision> >& collisions, // current self collision state
                                    const cnoid::BodyPtr& robot_ref, // command level target
                                    std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > >& jointLimitTablesMap,
                                    cnoid::BodyPtr& robot_com, //output
@@ -353,7 +353,7 @@ namespace PrimitiveMotionLevel {
                                                                    const cnoid::BodyPtr& robot_ref,
                                                                    const std::map<std::string, std::shared_ptr<PositionTask> >& positionTaskMap,
                                                                    std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > >& jointLimitTablesMap,
-                                                                   const std::vector<std::shared_ptr<PrimitiveMotionLevel::Collision> >& collisions, // current self collision state
+                                                                   const std::vector<std::shared_ptr<WholeBodyPosition::Collision> >& collisions, // current self collision state
                                                                    double dt,
                                                                    bool followRootLink,
                                                                    int debugLevel){
@@ -414,7 +414,7 @@ namespace PrimitiveMotionLevel {
   }
 
 }
-// void PrimitiveMotionLevelController::solveFullbodyIK(HumanPose& ref){
+// void WholeBodyPositionController::solveFullbodyIK(HumanPose& ref){
 //     std::vector<IKConstraint> ikc_list;
 //     if(wbms->legged){ // free baselink, lleg, rleg, larm, rarm setting
 //         {

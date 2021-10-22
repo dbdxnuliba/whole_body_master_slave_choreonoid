@@ -1,5 +1,5 @@
-#ifndef PrimitiveMotionLevelController_H
-#define PrimitiveMotionLevelController_H
+#ifndef WholeBodyPositionController_H
+#define WholeBodyPositionController_H
 
 #include <memory>
 #include <map>
@@ -26,11 +26,11 @@
 #include <collision_checker_msgs/idl/Collision.hh>
 #include <primitive_motion_level_msgs/idl/PrimitiveState.hh>
 #include <primitive_motion_level_tools/PrimitiveState.h>
-#include "PrimitiveMotionLevelControllerService_impl.h"
+#include "WholeBodyPositionControllerService_impl.h"
 #include "PositionController.h"
 #include "Collision.h"
 
-class PrimitiveMotionLevelController : public RTC::DataFlowComponentBase{
+class WholeBodyPositionController : public RTC::DataFlowComponentBase{
 public:
   class Ports {
   public:
@@ -48,7 +48,7 @@ public:
       m_baseTformComOut_("baseTformComOut", m_baseTformCom_),
       m_primitiveCommandComOut_("primitiveCommandComOut", m_primitiveCommandCom_),
 
-      m_PrimitiveMotionLevelControllerServicePort_("PrimitiveMotionLevelControllerService") {
+      m_WholeBodyPositionControllerServicePort_("WholeBodyPositionControllerService") {
     }
 
     RTC::TimedDoubleSeq m_qRef_;
@@ -75,8 +75,8 @@ public:
     primitive_motion_level_msgs::TimedPrimitiveStateSeq m_primitiveCommandCom_;
     RTC::OutPort <primitive_motion_level_msgs::TimedPrimitiveStateSeq> m_primitiveCommandComOut_;
 
-    PrimitiveMotionLevelControllerService_impl m_service0_;
-    RTC::CorbaPort m_PrimitiveMotionLevelControllerServicePort_;
+    WholeBodyPositionControllerService_impl m_service0_;
+    RTC::CorbaPort m_WholeBodyPositionControllerServicePort_;
   };
 
   class ControlMode{
@@ -116,7 +116,7 @@ public:
   };
 
 public:
-  PrimitiveMotionLevelController(RTC::Manager* manager);
+  WholeBodyPositionController(RTC::Manager* manager);
   virtual RTC::ReturnCode_t onInitialize();
   virtual RTC::ReturnCode_t onFinalize();
   virtual RTC::ReturnCode_t onActivated(RTC::UniqueId ec_id);
@@ -124,8 +124,8 @@ public:
   virtual RTC::ReturnCode_t onExecute(RTC::UniqueId ec_id);
   bool startControl();
   bool stopControl();
-  bool setParams(const whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param);
-  bool getParams(whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService::PrimitiveMotionLevelControllerParam& i_param);
+  bool setParams(const whole_body_position_controller::WholeBodyPositionControllerService::WholeBodyPositionControllerParam& i_param);
+  bool getParams(whole_body_position_controller::WholeBodyPositionControllerService::WholeBodyPositionControllerParam& i_param);
 
 protected:
   std::mutex mutex_;
@@ -148,26 +148,26 @@ protected:
 
   // 1. portから受け取ったprimitive motion level 指令など
   std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> > primitiveCommandMap_;
-  std::vector<std::shared_ptr<PrimitiveMotionLevel::Collision> > collisions_;
+  std::vector<std::shared_ptr<WholeBodyPosition::Collision> > collisions_;
 
   // 2. primitiveCommandMap_を受け取り、m_robot_comを計算する
-  PrimitiveMotionLevel::PositionController positionController_;
+  WholeBodyPosition::PositionController positionController_;
 
   // static functions
-  static void readPorts(const std::string& instance_name, PrimitiveMotionLevelController::Ports& port);
-  static void calcReferenceRobot(const std::string& instance_name, const PrimitiveMotionLevelController::Ports& port, cnoid::BodyPtr& robot);
-  static void getPrimitiveCommand(const std::string& instance_name, const PrimitiveMotionLevelController::Ports& port, double dt, std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap);
-  static void getCollision(const std::string& instance_name, const PrimitiveMotionLevelController::Ports& port, std::vector<std::shared_ptr<PrimitiveMotionLevel::Collision> >& collisions);
-  static void processModeTransition(const std::string& instance_name, PrimitiveMotionLevelController::ControlMode& mode, const double dt, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_com, PrimitiveMotionLevelController::OutputOffsetInterpolators& outputOffsetInterpolators);
-  static void preProcessForControl(const std::string& instance_name, PrimitiveMotionLevel::PositionController& positionController);
-  static void passThrough(const std::string& instance_name, const cnoid::BodyPtr& robot_ref, cnoid::BodyPtr& robot_com, PrimitiveMotionLevelController::OutputOffsetInterpolators& outputOffsetInterpolators, double dt, const std::vector<cnoid::LinkPtr>& useJoints = std::vector<cnoid::LinkPtr>());
-  static void calcOutputPorts(const std::string& instance_name, PrimitiveMotionLevelController::Ports& port, const cnoid::BodyPtr& robot_com, std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap);
+  static void readPorts(const std::string& instance_name, WholeBodyPositionController::Ports& port);
+  static void calcReferenceRobot(const std::string& instance_name, const WholeBodyPositionController::Ports& port, cnoid::BodyPtr& robot);
+  static void getPrimitiveCommand(const std::string& instance_name, const WholeBodyPositionController::Ports& port, double dt, std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap);
+  static void getCollision(const std::string& instance_name, const WholeBodyPositionController::Ports& port, std::vector<std::shared_ptr<WholeBodyPosition::Collision> >& collisions);
+  static void processModeTransition(const std::string& instance_name, WholeBodyPositionController::ControlMode& mode, const double dt, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_com, WholeBodyPositionController::OutputOffsetInterpolators& outputOffsetInterpolators);
+  static void preProcessForControl(const std::string& instance_name, WholeBodyPosition::PositionController& positionController);
+  static void passThrough(const std::string& instance_name, const cnoid::BodyPtr& robot_ref, cnoid::BodyPtr& robot_com, WholeBodyPositionController::OutputOffsetInterpolators& outputOffsetInterpolators, double dt, const std::vector<cnoid::LinkPtr>& useJoints = std::vector<cnoid::LinkPtr>());
+  static void calcOutputPorts(const std::string& instance_name, WholeBodyPositionController::Ports& port, const cnoid::BodyPtr& robot_com, std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap);
 };
 
 
 extern "C"
 {
-  void PrimitiveMotionLevelControllerInit(RTC::Manager* manager);
+  void WholeBodyPositionControllerInit(RTC::Manager* manager);
 };
 
-#endif // PrimitiveMotionLevelController_H
+#endif // WholeBodyPositionController_H

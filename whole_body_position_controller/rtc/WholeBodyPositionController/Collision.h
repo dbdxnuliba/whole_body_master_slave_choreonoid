@@ -1,11 +1,11 @@
-#ifndef PrimitiveMotionLevelController_Collision_H
-#define PrimitiveMotionLevelController_Collision_H
+#ifndef WholeBodyPositionController_Collision_H
+#define WholeBodyPositionController_Collision_H
 
 #include <cnoid/Body>
 #include <string>
 #include <collision_checker_msgs/idl/Collision.hh>
 
-namespace PrimitiveMotionLevel {
+namespace WholeBodyPosition {
 
   class Collision {
   public:

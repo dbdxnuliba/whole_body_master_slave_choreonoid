@@ -1,4 +1,4 @@
-# PrimitiveMotionLevelController
+# WholeBodyPositionController
 
 ## InPort
 - `qRef` (RTC::TimedDoubleSeq) [REQUIRED]
@@ -12,4 +12,4 @@
 - `baseRpyCom` (RTC::TimedOrientation3D)
 
 ## ServiceServer
-- `service0` (whole_body_master_slave_choreonoid::PrimitiveMotionLevelControllerService)
+- `service0` (whole_body_position_controller::WholeBodyPositionControllerService)
