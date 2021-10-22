@@ -38,6 +38,7 @@ RTC::ReturnCode_t WholeBodyTorqueController::onInitialize(){
   addInPort("baseRpyRefIn", this->ports_.m_baseRpyRefIn_);
   addInPort("primitiveCommandRefIn", this->ports_.m_primitiveCommandRefIn_);
   addInPort("qActIn", this->ports_.m_qActIn_);
+  addInPort("dqActIn", this->ports_.m_dqActIn_);
   addInPort("imuActIn", this->ports_.m_imuActIn_);
   addInPort("collisionActIn", this->ports_.m_collisionActIn_);
   addOutPort("tauComOut", this->ports_.m_tauComOut_);
@@ -130,13 +131,11 @@ RTC::ReturnCode_t WholeBodyTorqueController::onInitialize(){
     }
   }
 
-  this->outputInterpolators_.qComFilter_hz_ = 1000.0; // テンポラリ. 後でperiodic_rateで上書きする
-  for(int i=0;i<this->m_robot_com_->numJoints();i++) {
-    this->outputInterpolators_.qOffsetInterpolatorMap_[this->m_robot_com_->joint(i)] = std::make_shared<cpp_filters::TwoPointInterpolator<double> >(0.0,0.0,0.0,cpp_filters::HOFFARBIB);
-    this->outputInterpolators_.outputRatioInterpolatorMap_[this->m_robot_com_->joint(i)] = std::make_shared<cpp_filters::TwoPointInterpolator<double> >(0.0,0.0,0.0,cpp_filters::HOFFARBIB);
+  this->dqActFilter_hz_ = 1000.0; // テンポラリ. 後でperiodic_rateで上書きする.
+  for(int i=0;i<this->m_robot_act_->numJoints();i++) {
     std::shared_ptr<cpp_filters::IIRFilter<double> > filter = std::make_shared<cpp_filters::IIRFilter<double> >();
-    filter->setParameterAsBiquad(500,1/sqrt(2),this->outputInterpolators_.qComFilter_hz_,this->m_robot_com_->joint(i)->q());
-    this->outputInterpolators_.qComFilterMap_[this->m_robot_com_->joint(i)] = filter;
+    filter->setParameterAsBiquad(500,1/sqrt(2),this->dqActFilter_hz_,0.0);
+    this->dqActFilterMap_[this->m_robot_act_->joint(i)] = filter;
   }
 
   return RTC::RTC_OK;
@@ -151,6 +150,7 @@ void WholeBodyTorqueController::readPorts(const std::string& instance_name, Whol
   if(port.m_primitiveCommandRefIn_.isNew()) port.m_primitiveCommandRefIn_.read();
 
   if(port.m_qActIn_.isNew()) port.m_qActIn_.read();
+  if(port.m_dqActIn_.isNew()) port.m_dqActIn_.read();
   if(port.m_imuActIn_.isNew()) port.m_imuActIn_.read();
   if(port.m_collisionActIn_.isNew()) port.m_collisionActIn_.read();
 }
@@ -169,10 +169,19 @@ void WholeBodyTorqueController::calcReferenceRobot(const std::string& instance_n
   robot->calcForwardKinematics();
 }
 
-void WholeBodyTorqueController::calcActualRobot(const std::string& instance_name, const WholeBodyTorqueController::Ports& port, cnoid::BodyPtr& robot) {
-  if(port.m_qAct_.data.length() == robot->numJoints()){
+void WholeBodyTorqueController::calcActualRobot(const std::string& instance_name, const WholeBodyTorqueController::Ports& port, cnoid::BodyPtr& robot, std::unordered_map<cnoid::LinkPtr, std::shared_ptr<cpp_filters::IIRFilter<double> > >& dqActFilterMap, double& dqActFilter_hz, double dt) {
+  if(port.m_qAct_.data.length() == robot->numJoints() && port.m_dqAct_.data.length() == robot->numJoints()){
+    if(dqActFilter_hz != 1.0 / dt) {
+      dqActFilter_hz = 1.0 / dt;
+      for(std::unordered_map<cnoid::LinkPtr, std::shared_ptr<cpp_filters::IIRFilter<double> > >::iterator it=dqActFilterMap.begin(); it!=dqActFilterMap.end(); it++) {
+        it->second->setParameterAsBiquad(500,1/sqrt(2),dqActFilter_hz,it->second->get());
+      }
+    }
+
     for ( int i = 0; i < robot->numJoints(); i++ ){
       robot->joint(i)->q() = port.m_qAct_.data[i];
+      robot->joint(i)->dq() = dqActFilterMap[robot->joint(i)]->passFilter(port.m_dqAct_.data[i]);
+      robot->joint(i)->ddq() = 0.0;
     }
     robot->calcForwardKinematics();
 
@@ -249,25 +258,11 @@ void WholeBodyTorqueController::preProcessForControl(const std::string& instance
   torqueController.reset();
 }
 
-void WholeBodyTorqueController::calcq(const std::string& instance_name, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_act, cnoid::BodyPtr& robot_com, WholeBodyTorqueController::OutputInterpolators& outputInterpolators, double dt, const std::vector<cnoid::LinkPtr>& useJoints){
-  if(outputInterpolators.qComFilter_hz_ != 1.0 / dt) {
-    outputInterpolators.qComFilter_hz_ = 1.0 / dt;
-    for(std::unordered_map<cnoid::LinkPtr, std::shared_ptr<cpp_filters::IIRFilter<double> > >::iterator it=outputInterpolators.qComFilterMap_.begin(); it!=outputInterpolators.qComFilterMap_.end(); it++) {
-      it->second->setParameterAsBiquad(500,1/sqrt(2),outputInterpolators.qComFilter_hz_,it->second->get());
-    }
-  }
-
-  for(size_t i=0;i<robot_com->numJoints();i++) {
-    if(std::find(useJoints.begin(), useJoints.end(), robot_com->joint(i)) == useJoints.end()){
-      double offset = 0.0, tmpv, tmpa;
-      if (!outputInterpolators.qOffsetInterpolatorMap_[robot_com->joint(i)]->isEmpty()) outputInterpolators.qOffsetInterpolatorMap_[robot_com->joint(i)]->get(offset, tmpv, tmpa, dt);
-      robot_com->joint(i)->q() = robot_ref->joint(i)->q() + offset;
-    }else{
-      robot_com->joint(i)->q() = outputInterpolators.qComFilterMap_[robot_com->joint(i)]->passFilter(robot_act->joint(i)->q());
-    }
-    robot_com->joint(i)->dq() = 0.0;
-    robot_com->joint(i)->ddq() = 0.0;
-  }
+void WholeBodyTorqueController::calcq(const std::string& instance_name, const cnoid::BodyPtr& robot_ref, cnoid::BodyPtr& robot_com, const std::vector<cnoid::LinkPtr>& useJoints){
+  std::vector<double> qcomorg(useJoints.size());
+  for(size_t i=0;i<useJoints.size();i++) qcomorg[i] = useJoints[i]->q();
+  for(size_t i=0;i<robot_com->numJoints();i++)  robot_com->joint(i)->q() = robot_ref->joint(i)->q();
+  for(size_t i=0;i<useJoints.size();i++) useJoints[i]->q() = qcomorg[i];
 }
 
 void WholeBodyTorqueController::calcOutputPorts(const std::string& instance_name, WholeBodyTorqueController::Ports& port, const cnoid::BodyPtr& robot_com, const cnoid::BodyPtr& robot_act, WholeBodyTorqueController::OutputInterpolators& outputInterpolators, double dt) {
@@ -335,13 +330,10 @@ void WholeBodyTorqueController::calcOutputPorts(const std::string& instance_name
 }
 
 void WholeBodyTorqueController::enableJoint(const cnoid::LinkPtr& joint_com, WholeBodyTorqueController::OutputInterpolators& outputInterpolators) {
-  outputInterpolators.qComFilterMap_[joint_com]->reset(joint_com->q());
   outputInterpolators.outputRatioInterpolatorMap_[joint_com]->setGoal(1.0,3.0);
 }
 
 void WholeBodyTorqueController::disableJoint(const cnoid::LinkPtr& joint_com, const cnoid::BodyPtr& robot_ref, WholeBodyTorqueController::OutputInterpolators& outputInterpolators) {
-  outputInterpolators.qOffsetInterpolatorMap_[joint_com]->reset(joint_com->q()-robot_ref->joint(joint_com->jointId())->q(),0.0,0.0);
-  outputInterpolators.qOffsetInterpolatorMap_[joint_com]->setGoal(0.0,3.0);
   outputInterpolators.outputRatioInterpolatorMap_[joint_com]->setGoal(0.0,3.0);
 }
 
@@ -361,7 +353,7 @@ RTC::ReturnCode_t WholeBodyTorqueController::onExecute(RTC::UniqueId ec_id){
   WholeBodyTorqueController::getPrimitiveCommand(instance_name, this->ports_, dt, this->primitiveCommandMap_);
 
   // calc actual state from inport
-  WholeBodyTorqueController::calcActualRobot(instance_name, this->ports_, this->m_robot_act_);
+  WholeBodyTorqueController::calcActualRobot(instance_name, this->ports_, this->m_robot_act_, this->dqActFilterMap_, this->dqActFilter_hz_, dt);
 
   // get self collision states for collision avoidance
   WholeBodyTorqueController::getCollision(instance_name, this->ports_, this->collisions_);
@@ -371,18 +363,18 @@ RTC::ReturnCode_t WholeBodyTorqueController::onExecute(RTC::UniqueId ec_id){
 
   if(this->mode_.isRunning()) {
     // q を計算
-    WholeBodyTorqueController::calcq(instance_name, this->m_robot_ref_, this->m_robot_act_, this->m_robot_com_, this->outputInterpolators_, dt, this->useJoints_);
+    WholeBodyTorqueController::calcq(instance_name, this->m_robot_ref_, this->m_robot_com_, this->useJoints_);
 
     if(this->mode_.isInitialize()){
       WholeBodyTorqueController::preProcessForControl(instance_name, this->torqueController_);
     }
 
     // tauを計算
-    this->torqueController_.control(this->primitiveCommandMap_, this->collisions_, this->m_robot_ref_, this->jointLimitTablesMap_, this->m_robot_com_, dt, this->debugLevel_);
+    this->torqueController_.control(this->primitiveCommandMap_, this->collisions_, this->m_robot_ref_, this->m_robot_act_, this->useJoints_, this->jointLimitTablesMap_, dt, this->debugLevel_);
 
   } else {
     // q を計算
-    WholeBodyTorqueController::calcq(instance_name, this->m_robot_ref_, this->m_robot_act_, this->m_robot_com_, this->outputInterpolators_, dt);
+    WholeBodyTorqueController::calcq(instance_name, this->m_robot_ref_, this->m_robot_com_);
   }
 
   // write outport

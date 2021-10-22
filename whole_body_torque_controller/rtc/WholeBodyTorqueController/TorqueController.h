@@ -11,24 +11,23 @@ namespace WholeBodyTorque {
 
   class TorqueController {
   public:
-    enum SolveMode_enum{ MODE_FULLBODY, MODE_PRIORITIZED};
-
     void reset();
     void control(const std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap, // primitive motion level target
                  const std::vector<std::shared_ptr<WholeBodyTorque::Collision> >& collisions, // current self collision state
                  const cnoid::BodyPtr& robot_ref, // command level target
+                 cnoid::BodyPtr& robot_act,
+                 const std::vector<cnoid::LinkPtr>& useJoints, // input and output
                  std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > >& jointLimitTablesMap,
-                 cnoid::BodyPtr& robot_com, //output
                  double dt,
                  int debugLevel
                  );
 
   protected:
-    class PositionTask {
+    class PrimitiveTask {
     public:
-      PositionTask(const std::string& name);
+      PrimitiveTask(const std::string& name);
       void updateFromPrimitiveCommand(const std::shared_ptr<const primitive_motion_level_tools::PrimitiveState>& primitiveCommand) {primitiveCommand_ = primitiveCommand;}
-      void calcImpedanceControl(double dt);
+      void calcTorque(const cnoid::BodyPtr& robot_act, cnoid::Vector6& rootWrench, double dt, const std::vector<cnoid::LinkPtr>& useJOints);
       const std::string& name() const { return name_;}
       const std::shared_ptr<const primitive_motion_level_tools::PrimitiveState>& primitiveCommand() const {return primitiveCommand_;}
       EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -41,10 +40,12 @@ namespace WholeBodyTorque {
     };
 
   protected:
-    std::map<std::string, std::shared_ptr<PositionTask> > positionTaskMap_;
+    std::map<std::string, std::shared_ptr<PrimitiveTask> > positionTaskMap_;
 
     // static functions
-    static void getPrimitiveCommand(const std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap, std::map<std::string, std::shared_ptr<TorqueController::PositionTask> >& positionTaskMap);
+    static void calcGravityCompensation(cnoid::BodyPtr& robot_act, cnoid::Vector6& rootWrench, const std::vector<cnoid::LinkPtr>& useJoints);
+    static void calcQRefPDTorque(cnoid::BodyPtr& robot_ref, cnoid::BodyPtr& robot_act, const std::vector<cnoid::LinkPtr>& useJoints);
+    static void getPrimitiveCommand(const std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap, std::map<std::string, std::shared_ptr<TorqueController::PrimitiveTask> >& positionTaskMap);
   };
 }
 

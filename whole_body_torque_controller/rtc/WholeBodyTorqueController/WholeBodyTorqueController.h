@@ -43,6 +43,7 @@ public:
       m_primitiveCommandRefIn_("primitiveCommandRefIn", m_primitiveCommandRef_),
 
       m_qActIn_("qActIn", m_qAct_),
+      m_dqActIn_("dqActIn", m_dqAct_),
       m_imuActIn_("imuActIn", m_imuAct_),// required if rootlink is not fixed joint
       m_collisionActIn_("collisionActIn", m_collisionAct_),
 
@@ -73,6 +74,8 @@ public:
 
     RTC::TimedDoubleSeq m_qAct_;
     RTC::InPort<RTC::TimedDoubleSeq> m_qActIn_;
+    RTC::TimedDoubleSeq m_dqAct_;
+    RTC::InPort<RTC::TimedDoubleSeq> m_dqActIn_;
     RTC::TimedOrientation3D m_imuAct_;
     RTC::InPort<RTC::TimedOrientation3D> m_imuActIn_;
     collision_checker_msgs::TimedCollisionSeq m_collisionAct_;
@@ -130,8 +133,6 @@ public:
 
   class OutputInterpolators {
   public:
-    std::unordered_map<cnoid::LinkPtr, std::shared_ptr<cpp_filters::TwoPointInterpolator<double> > > qOffsetInterpolatorMap_; // controlで上書きしない関節について、refereceのqに加えるoffset
-    std::unordered_map<cnoid::LinkPtr, std::shared_ptr<cpp_filters::IIRFilter<double> > > qComFilterMap_; double qComFilter_hz_; // controlで上書きする関節について、actualの角度にこのフィルタを適用した値を指令する
     std::unordered_map<cnoid::LinkPtr, std::shared_ptr<cpp_filters::TwoPointInterpolator<double> > > outputRatioInterpolatorMap_; // gain, torque用. 0ならreference
   };
 
@@ -162,6 +163,7 @@ protected:
   cnoid::BodyPtr m_robot_ref_; // reference (q, basepos and baserpy only)
   cnoid::BodyPtr m_robot_act_; // actual
   cnoid::BodyPtr m_robot_com_; // command (q,tau only)
+  std::unordered_map<cnoid::LinkPtr, std::shared_ptr<cpp_filters::IIRFilter<double> > > dqActFilterMap_; double dqActFilter_hz_;
 
   // 0. robotの設定
   std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > > jointLimitTablesMap_;
@@ -176,12 +178,12 @@ protected:
   // static functions
   static void readPorts(const std::string& instance_name, WholeBodyTorqueController::Ports& port);
   static void calcReferenceRobot(const std::string& instance_name, const WholeBodyTorqueController::Ports& port, cnoid::BodyPtr& robot);
-  static void calcActualRobot(const std::string& instance_name, const WholeBodyTorqueController::Ports& port, cnoid::BodyPtr& robot);
+  static void calcActualRobot(const std::string& instance_name, const WholeBodyTorqueController::Ports& port, cnoid::BodyPtr& robot, std::unordered_map<cnoid::LinkPtr, std::shared_ptr<cpp_filters::IIRFilter<double> > >& dqActFilterMap_, double& dqActFilter_hz_, double dt);
   static void getPrimitiveCommand(const std::string& instance_name, const WholeBodyTorqueController::Ports& port, double dt, std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap);
   static void getCollision(const std::string& instance_name, const WholeBodyTorqueController::Ports& port, std::vector<std::shared_ptr<WholeBodyTorque::Collision> >& collisions);
   static void processModeTransition(const std::string& instance_name, WholeBodyTorqueController::ControlMode& mode, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_com, WholeBodyTorqueController::OutputInterpolators& outputInterpolators, const std::vector<cnoid::LinkPtr>& useJoints);
   static void preProcessForControl(const std::string& instance_name, WholeBodyTorque::TorqueController& torqueController);
-  static void calcq(const std::string& instance_name, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_act, cnoid::BodyPtr& robot_com, WholeBodyTorqueController::OutputInterpolators& outputInterpolators, double dt, const std::vector<cnoid::LinkPtr>& useJoints=std::vector<cnoid::LinkPtr>());
+  static void calcq(const std::string& instance_name, const cnoid::BodyPtr& robot_ref, cnoid::BodyPtr& robot_com, const std::vector<cnoid::LinkPtr>& useJoints=std::vector<cnoid::LinkPtr>());
   static void calcOutputPorts(const std::string& instance_name, WholeBodyTorqueController::Ports& port, const cnoid::BodyPtr& robot_com, const cnoid::BodyPtr& robot_act, WholeBodyTorqueController::OutputInterpolators& outputInterpolators, double dt);
   static void enableJoint(const cnoid::LinkPtr& joint_com, WholeBodyTorqueController::OutputInterpolators& outputInterpolators);
   static void disableJoint(const cnoid::LinkPtr& joint_com, const cnoid::BodyPtr& robot_ref, WholeBodyTorqueController::OutputInterpolators& outputInterpolators);
