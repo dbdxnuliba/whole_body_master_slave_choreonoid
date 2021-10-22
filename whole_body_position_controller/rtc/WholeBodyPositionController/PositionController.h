@@ -26,6 +26,7 @@ namespace WholeBodyPosition {
     void control(const std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap, // primitive motion level target
                  const std::vector<std::shared_ptr<WholeBodyPosition::Collision> >& collisions, // current self collision state
                  const cnoid::BodyPtr& robot_ref, // command level target
+                 const std::vector<cnoid::LinkPtr>& useJoints,
                  std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > >& jointLimitTablesMap,
                  cnoid::BodyPtr& robot_com, //output
                  double dt,
@@ -83,6 +84,7 @@ namespace WholeBodyPosition {
       void solveFullbodyIK(cnoid::BodyPtr& robot_com,
                            const cnoid::BodyPtr& robot_ref,
                            const std::map<std::string, std::shared_ptr<PositionTask> >& positionTaskMap_,
+                           const std::vector<cnoid::LinkPtr>& useJoints,
                            double dt,
                            bool followRootLink,
                            int debugLevel);
@@ -100,6 +102,7 @@ namespace WholeBodyPosition {
                               const std::map<std::string, std::shared_ptr<PositionTask> >& positionTaskMap_,
                               std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > >& jointLimitTablesMap,
                               const std::vector<std::shared_ptr<WholeBodyPosition::Collision> >& collisions, // current self collision state
+                              const std::vector<cnoid::LinkPtr>& useJoints,
                               double dt,
                               bool followRootLink,
                               int debugLevel);

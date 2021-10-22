@@ -289,6 +289,7 @@ namespace WholeBodyPosition {
   void PositionController::control(const std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap, // primitive motion level target
                                    const std::vector<std::shared_ptr<WholeBodyPosition::Collision> >& collisions, // current self collision state
                                    const cnoid::BodyPtr& robot_ref, // command level target
+                                   const std::vector<cnoid::LinkPtr>& useJoints,
                                    std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > >& jointLimitTablesMap,
                                    cnoid::BodyPtr& robot_com, //output
                                    double dt,
@@ -305,11 +306,11 @@ namespace WholeBodyPosition {
     // solve ik
     switch(this->solveMode_){
     case MODE_FULLBODY:
-      this->fullbodyIKSolver_.solveFullbodyIK(robot_com, robot_ref, this->positionTaskMap_, dt, this->followRootLink_, debugLevel);
+      this->fullbodyIKSolver_.solveFullbodyIK(robot_com, robot_ref, this->positionTaskMap_, useJoints, dt, this->followRootLink_, debugLevel);
       break;
     case MODE_PRIORITIZED:
     default:
-      this->prioritizedIKSolver_.solvePrioritizedIK(robot_com, robot_ref, this->positionTaskMap_, jointLimitTablesMap, collisions, dt, this->followRootLink_, debugLevel);
+      this->prioritizedIKSolver_.solvePrioritizedIK(robot_com, robot_ref, this->positionTaskMap_, jointLimitTablesMap, collisions, useJoints, dt, this->followRootLink_, debugLevel);
       break;
     }
   }
@@ -318,12 +319,16 @@ namespace WholeBodyPosition {
   void PositionController::FullbodyIKSolver::solveFullbodyIK(cnoid::BodyPtr& robot_com,
                                                              const cnoid::BodyPtr& robot_ref,
                                                              const std::map<std::string, std::shared_ptr<PositionTask> >& positionTaskMap,
+                                                             const std::vector<cnoid::LinkPtr>& useJoints,
                                                              double dt,
                                                              bool followRootLink,
                                                              int debugLevel){
     if(this->jlim_avoid_weight_old_.size() != 6+robot_com->numJoints()) this->jlim_avoid_weight_old_ = cnoid::VectorX::Zero(6+robot_com->numJoints());
-    cnoid::VectorX dq_weight_all = cnoid::VectorX::Ones(6+robot_com->numJoints());
-    if(robot_com->rootLink()->jointType() == cnoid::Link::FIXED_JOINT) dq_weight_all.head<6>() = cnoid::Vector6::Zero();
+    cnoid::VectorX dq_weight_all = cnoid::VectorX::Zero(6+robot_com->numJoints());
+    for(int i=0;i<useJoints.size();i++){
+      if(useJoints[i]->isRoot() && !useJoints[i]->isFixedJoint()) dq_weight_all.head<6>() = cnoid::Vector6::Ones();
+      else dq_weight_all[6+useJoints[i]->jointId()] = 1.0;
+    }
 
     std::vector<std::shared_ptr<IK::IKConstraint> > ikConstraint;
 
@@ -354,6 +359,7 @@ namespace WholeBodyPosition {
                                                                    const std::map<std::string, std::shared_ptr<PositionTask> >& positionTaskMap,
                                                                    std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > >& jointLimitTablesMap,
                                                                    const std::vector<std::shared_ptr<WholeBodyPosition::Collision> >& collisions, // current self collision state
+                                                                   const std::vector<cnoid::LinkPtr>& useJoints,
                                                                    double dt,
                                                                    bool followRootLink,
                                                                    int debugLevel){
@@ -397,13 +403,7 @@ namespace WholeBodyPosition {
 
     for(int i=0;i<ikConstraint.size();i++) for(size_t j=0;j<ikConstraint[i].size();j++) ikConstraint[i][j]->debuglevel() = debugLevel;
 
-    std::vector<cnoid::LinkPtr> joints;
-    if(robot_com->rootLink()->jointType() != cnoid::Link::FIXED_JOINT) joints.push_back(robot_com->rootLink());
-    for(size_t i=0;i<robot_com->numJoints();i++){
-      joints.push_back(robot_com->joint(i));
-    }
-
-    prioritized_inverse_kinematics_solver::solveIKLoop(joints,
+    prioritized_inverse_kinematics_solver::solveIKLoop(useJoints,
                                                        ikConstraint,
                                                        this->prevTasks_,
                                                        1,//loop

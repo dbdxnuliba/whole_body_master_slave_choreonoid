@@ -298,7 +298,7 @@ RTC::ReturnCode_t WholeBodyPositionController::onExecute(RTC::UniqueId ec_id){
       WholeBodyPositionController::preProcessForControl(instance_name, this->positionController_);
     }
 
-    this->positionController_.control(this->primitiveCommandMap_, this->collisions_, this->m_robot_ref_, this->jointLimitTablesMap_, this->m_robot_com_, dt, this->debugLevel_);
+    this->positionController_.control(this->primitiveCommandMap_, this->collisions_, this->m_robot_ref_, this->useJoints_, this->jointLimitTablesMap_, this->m_robot_com_, dt, this->debugLevel_);
 
   } else {
     // robot_refをrobot_comへ
