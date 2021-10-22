@@ -5,13 +5,13 @@
 #include <memory>
 #include <Eigen/Eigen>
 #include <vector>
-#include "PrimitiveCommand.h"
+#include <primitive_motion_level_tools/PrimitiveState.h>
 
 namespace CFR {
 
   class CFRCalculator {
   public:
-    bool computeCFR(const std::map<std::string, std::shared_ptr<CFR::PrimitiveCommand> >& primitiveCommandMap, cnoid::BodyPtr& robot, int debugLevel);
+    bool computeCFR(const std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap, cnoid::BodyPtr& robot, int debugLevel);
     const Eigen::SparseMatrix<double,Eigen::RowMajor>& M() const { return M_;}
     const Eigen::VectorXd& l() const { return l_;}
     const Eigen::VectorXd& u() const { return u_;}

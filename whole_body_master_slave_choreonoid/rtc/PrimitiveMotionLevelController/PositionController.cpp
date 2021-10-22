@@ -67,7 +67,7 @@ namespace PrimitiveMotionLevel {
   }
 
   void PositionController::PositionTask::calcPositionConstraint(const cnoid::BodyPtr& robot_com,
-                                                                const std::shared_ptr<const PrimitiveMotionLevel::PrimitiveCommand>& primitiveCommand,
+                                                                const std::shared_ptr<const primitive_motion_level_tools::PrimitiveState>& primitiveCommand,
                                                                 const cnoid::Position& offset,
                                                                 double weight,
                                                                 std::shared_ptr<IK::PositionConstraint>& positionConstraint,
@@ -107,7 +107,7 @@ namespace PrimitiveMotionLevel {
   }
 
   void PositionController::PositionTask::calcCOMConstraint(const cnoid::BodyPtr& robot_com,
-                                                           const std::shared_ptr<const PrimitiveMotionLevel::PrimitiveCommand>& primitiveCommand,
+                                                           const std::shared_ptr<const primitive_motion_level_tools::PrimitiveState>& primitiveCommand,
                                                            double weight,
                                                            std::shared_ptr<IK::COMConstraint>& comConstraint,
                                                            double dt){
@@ -123,7 +123,7 @@ namespace PrimitiveMotionLevel {
   }
 
   void PositionController::PositionTask::calcCOMRegionConstraint(const cnoid::BodyPtr& robot_com,
-                                                                 const std::shared_ptr<const PrimitiveMotionLevel::PrimitiveCommand>& primitiveCommand,
+                                                                 const std::shared_ptr<const primitive_motion_level_tools::PrimitiveState>& primitiveCommand,
                                                                  double weight,
                                                                  std::shared_ptr<IK::COMConstraint>& comConstraint,
                                                                  double dt){
@@ -154,20 +154,20 @@ namespace PrimitiveMotionLevel {
     this->prioritizedIKSolver_ = PrioritizedIKSolver();
   }
 
-  void PositionController::getPrimitiveCommand(const std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap, std::map<std::string, std::shared_ptr<PositionController::PositionTask> >& positionTaskMap) {
+  void PositionController::getPrimitiveCommand(const std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap, std::map<std::string, std::shared_ptr<PositionController::PositionTask> >& positionTaskMap) {
     // 消滅したEndEffectorを削除
     for(std::map<std::string, std::shared_ptr<PositionController::PositionTask> >::iterator it = positionTaskMap.begin(); it != positionTaskMap.end(); ) {
       if (primitiveCommandMap.find(it->first) == primitiveCommandMap.end()) it = positionTaskMap.erase(it);
       else ++it;
     }
     // 増加したEndEffectorの反映
-    for(std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >::const_iterator it = primitiveCommandMap.begin(); it != primitiveCommandMap.end(); it++) {
+    for(std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >::const_iterator it = primitiveCommandMap.begin(); it != primitiveCommandMap.end(); it++) {
       if(positionTaskMap.find(it->first)==positionTaskMap.end()){
         positionTaskMap[it->first] = std::make_shared<PositionController::PositionTask>(it->first);
       }
     }
     // 各指令値の反映
-    for(std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >::const_iterator it = primitiveCommandMap.begin(); it != primitiveCommandMap.end(); it++){
+    for(std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >::const_iterator it = primitiveCommandMap.begin(); it != primitiveCommandMap.end(); it++){
       positionTaskMap[it->first]->updateFromPrimitiveCommand(it->second);
     }
   }
@@ -286,7 +286,7 @@ namespace PrimitiveMotionLevel {
     }
   }
 
-  void PositionController::control(const std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap, // primitive motion level target
+  void PositionController::control(const std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap, // primitive motion level target
                                    const std::vector<std::shared_ptr<PrimitiveMotionLevel::Collision> >& collisions, // current self collision state
                                    const cnoid::BodyPtr& robot_ref, // command level target
                                    std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > >& jointLimitTablesMap,

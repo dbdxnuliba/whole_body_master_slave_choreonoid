@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   joint_limit_table
   collision_checker_msgs
   primitive_motion_level_msgs
+  primitive_motion_level_tools
   )
 find_package(choreonoid REQUIRED)
 
@@ -29,7 +30,6 @@ endforeach(lib)
 rtmbuild_add_library(WholeBodyTorqueController SHARED
   WholeBodyTorqueController.cpp
   WholeBodyTorqueControllerService_impl.cpp
-  PrimitiveCommand.cpp
   Collision.cpp
   TorqueController.cpp
   )

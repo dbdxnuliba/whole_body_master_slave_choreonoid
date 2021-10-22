@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   ik_constraint_joint_limit_table
   collision_checker_msgs
   primitive_motion_level_msgs
+  primitive_motion_level_tools
   )
 find_package(choreonoid REQUIRED)
 find_package(OsqpEigen REQUIRED)
@@ -32,7 +33,6 @@ endforeach(lib)
 rtmbuild_add_library(PrimitiveMotionLevelController SHARED
   PrimitiveMotionLevelController.cpp
   PrimitiveMotionLevelControllerService_impl.cpp
-  PrimitiveCommand.cpp
   Collision.cpp
   PositionController.cpp
   )

@@ -69,9 +69,9 @@ namespace CFR {
     return true;
   }
 
-  bool CFRCalculator::computeCFR(const std::map<std::string, std::shared_ptr<CFR::PrimitiveCommand> >& primitiveCommandMap, cnoid::BodyPtr& robot, int debugLevel) {
-    std::vector<std::shared_ptr<CFR::PrimitiveCommand> > supportEEFs;
-    for(std::map<std::string, std::shared_ptr<CFR::PrimitiveCommand> >::const_iterator it = primitiveCommandMap.begin(); it != primitiveCommandMap.end(); it++) {
+  bool CFRCalculator::computeCFR(const std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap, cnoid::BodyPtr& robot, int debugLevel) {
+    std::vector<std::shared_ptr<primitive_motion_level_tools::PrimitiveState> > supportEEFs;
+    for(std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >::const_iterator it = primitiveCommandMap.begin(); it != primitiveCommandMap.end(); it++) {
       if(it->first != "com" && it->second->supportCOM()){
         supportEEFs.push_back(it->second);
       }

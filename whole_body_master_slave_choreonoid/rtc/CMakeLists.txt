@@ -1,3 +1,2 @@
 add_subdirectory(PrimitiveMotionLevelController)
-add_subdirectory(PrimitiveStateROSBridge)
 add_subdirectory(CFRController)

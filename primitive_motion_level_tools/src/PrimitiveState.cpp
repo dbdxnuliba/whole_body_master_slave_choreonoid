@@ -1,11 +1,11 @@
-#include "PrimitiveCommand.h"
+#include <primitive_motion_level_tools/PrimitiveState.h>
 
 #include <cnoid/EigenUtil>
 #include <iostream>
 
-namespace CFR {
+namespace primitive_motion_level_tools {
 
-  PrimitiveCommand::PrimitiveCommand(const std::string& name) :
+  PrimitiveState::PrimitiveState(const std::string& name) :
     name_(name),
     parentLinkName_(""),
     localPose_(cnoid::Position::Identity()),
@@ -18,6 +18,10 @@ namespace CFR {
     targetWrenchInterpolator_(cnoid::Vector6::Zero(),cnoid::Vector6::Zero(),cnoid::Vector6::Zero(),cpp_filters::HOFFARBIB),
     poseFollowGain_(cnoid::Vector6::Zero()),
     wrenchFollowGain_(cnoid::Vector6::Zero()),
+    isPoseCGlobal_(false),
+    poseC_(0,6),
+    poseld_(0),
+    poseud_(0),
     isWrenchCGlobal_(false),
     wrenchC_(0,6),
     wrenchld_(0),
@@ -31,7 +35,7 @@ namespace CFR {
   {
   }
 
-  void PrimitiveCommand::updateFromIdl(const primitive_motion_level_msgs::PrimitiveStateIdl& idl) {
+  void PrimitiveState::updateFromIdl(const primitive_motion_level_msgs::PrimitiveStateIdl& idl) {
     this->parentLinkName_ = idl.parentLinkName;
     this->localPose_.translation()[0] = idl.localPose.position.x;
     this->localPose_.translation()[1] = idl.localPose.position.y;
@@ -42,8 +46,7 @@ namespace CFR {
     pose.translation()[1] = idl.pose.position.y;
     pose.translation()[2] = idl.pose.position.z;
     pose.linear() = cnoid::rotFromRpy(idl.pose.orientation.r,idl.pose.orientation.p,idl.pose.orientation.y);
-    std::cerr << "lin" << std::endl << pose.linear() << std::endl;
-
+    std::cerr << "2lin" << std::endl << pose.linear() << std::endl;
     if(!this->isInitial_ && idl.time > 0.0){
       this->targetPositionInterpolator_.setGoal(pose.translation(),idl.time);
       this->targetOrientationInterpolator_.setGoal(pose.linear(),idl.time);
@@ -59,6 +62,22 @@ namespace CFR {
     }
     for(size_t i=0;i<6;i++) this->poseFollowGain_[i] = idl.poseFollowGain[i];
     for(size_t i=0;i<6;i++) this->wrenchFollowGain_[i] = idl.wrenchFollowGain[i];
+    this->isPoseCGlobal_ = idl.isPoseCGlobal;
+    this->poseC_ = Eigen::SparseMatrix<double,Eigen::RowMajor>(idl.poseC.length(),6);
+    for(size_t i=0;i<idl.poseC.length();i++)
+      for(size_t j=0;j<6;j++)
+        if(idl.poseC[i][j]!=0) this->poseC_.insert(i,j) = idl.poseC[i][j];
+    this->poseld_.resize(idl.poseld.length());
+    for(size_t i=0;i<idl.poseld.length();i++) this->poseld_[i] = idl.poseld[i];
+    this->poseud_.resize(idl.poseud.length());
+    for(size_t i=0;i<idl.poseud.length();i++) this->poseud_[i] = idl.poseud[i];
+    if(this->poseC_.rows() != this->poseld_.rows() ||
+       this->poseld_.rows() != this->poseud_.rows()){
+      std::cerr << "\x1b[31m[PrimitiveState::updateFromIdl] " << "dimension mismatch" << "\x1b[39m" << std::endl;
+      this->poseC_.resize(0,6);
+      this->poseld_.resize(0);
+      this->poseud_.resize(0);
+    }
     this->isWrenchCGlobal_ = idl.isWrenchCGlobal;
     this->wrenchC_ = Eigen::SparseMatrix<double,Eigen::RowMajor>(idl.wrenchC.length(),6);
     for(size_t i=0;i<idl.wrenchC.length();i++)
@@ -85,7 +104,7 @@ namespace CFR {
 
   }
 
-  void PrimitiveCommand::updateTargetForOneStep(double dt) {
+  void PrimitiveState::updateTargetForOneStep(double dt) {
     this->targetPosePrevPrev_ = this->targetPosePrev_;
     this->targetPosePrev_ = this->targetPose_;
     cnoid::Vector3 trans;
@@ -95,7 +114,6 @@ namespace CFR {
     this->targetOrientationInterpolator_.get(R, dt);
     this->targetPose_.linear() = R;
     this->targetWrenchInterpolator_.get(this->targetWrench_, dt);
-    std::cerr << "get" << std::endl << R << std::endl;
   }
 
 };

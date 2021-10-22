@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>whole_body_torque_controller</name>
+  <name>primitive_motion_level_tools</name>
   <version>0.0.0</version>
-  <description>The whole_body_torque_controller package</description>
+  <description>The primitive_motion_level_tools package</description>
 
   <maintainer email="hiraoka@jsk.imi.i.u-tokyo.ac.jp">Naoki-Hiraoka</maintainer>
 
@@ -13,9 +13,10 @@
   <depend>roscpp</depend>
   <depend>rtmbuild</depend>
 
+  <depend>geometry_msgs</depend>
+  <depend>tf2</depend>
+  <depend>urdf</depend>
   <depend>primitive_motion_level_msgs</depend>
-  <depend>primitive_motion_level_tools</depend>
-  <depend>collision_checker_msgs</depend>
+
   <depend>cpp_filters</depend>
-  <depend>joint_limit_table</depend>
 </package>

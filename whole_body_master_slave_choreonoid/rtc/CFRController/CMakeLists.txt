@@ -9,6 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
   rtmbuild
   cpp_filters
   primitive_motion_level_msgs
+  primitive_motion_level_tools
   static_equilibuim_test
   )
 find_package(choreonoid REQUIRED)
@@ -28,7 +29,6 @@ endforeach(lib)
 rtmbuild_add_library(CFRController SHARED
   CFRController.cpp
   CFRControllerService_impl.cpp
-  PrimitiveCommand.cpp
   CFRCalculator.cpp
   )
 target_link_libraries(CFRController

@@ -120,9 +120,9 @@ void PrimitiveMotionLevelController::calcReferenceRobot(const std::string& insta
   robot->calcCenterOfMass();
 }
 
-void PrimitiveMotionLevelController::getPrimitiveCommand(const std::string& instance_name, const PrimitiveMotionLevelController::Ports& port, double dt, std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap) {
+void PrimitiveMotionLevelController::getPrimitiveCommand(const std::string& instance_name, const PrimitiveMotionLevelController::Ports& port, double dt, std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap) {
   // 消滅したEndEffectorを削除
-  for(std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >::iterator it = primitiveCommandMap.begin(); it != primitiveCommandMap.end(); ) {
+  for(std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >::iterator it = primitiveCommandMap.begin(); it != primitiveCommandMap.end(); ) {
     bool found = false;
     for(size_t i=0;i<port.m_primitiveCommandRef_.data.length();i++) {
       if(std::string(port.m_primitiveCommandRef_.data[i].name)==it->first) found = true;
@@ -133,13 +133,13 @@ void PrimitiveMotionLevelController::getPrimitiveCommand(const std::string& inst
   // 増加したEndEffectorの反映
   for(size_t i=0;i<port.m_primitiveCommandRef_.data.length();i++){
     if(primitiveCommandMap.find(std::string(port.m_primitiveCommandRef_.data[i].name))==primitiveCommandMap.end()){
-      primitiveCommandMap[std::string(port.m_primitiveCommandRef_.data[i].name)] = std::make_shared<PrimitiveMotionLevel::PrimitiveCommand>(std::string(port.m_primitiveCommandRef_.data[i].name));
+      primitiveCommandMap[std::string(port.m_primitiveCommandRef_.data[i].name)] = std::make_shared<primitive_motion_level_tools::PrimitiveState>(std::string(port.m_primitiveCommandRef_.data[i].name));
     }
   }
   // 各指令値の反映
   for(size_t i=0;i<port.m_primitiveCommandRef_.data.length();i++){
     const primitive_motion_level_msgs::PrimitiveStateIdl& idl = port.m_primitiveCommandRef_.data[i];
-    std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> state = primitiveCommandMap[std::string(idl.name)];
+    std::shared_ptr<primitive_motion_level_tools::PrimitiveState> state = primitiveCommandMap[std::string(idl.name)];
     state->updateFromIdl(idl);
     state->updateTargetForOneStep(dt);
   }
@@ -207,7 +207,7 @@ void PrimitiveMotionLevelController::passThrough(const std::string& instance_nam
   robot_com->calcCenterOfMass();
 }
 
-void PrimitiveMotionLevelController::calcOutputPorts(const std::string& instance_name, PrimitiveMotionLevelController::Ports& port, const cnoid::BodyPtr& robot_com, std::map<std::string, std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> >& primitiveCommandMap) {
+void PrimitiveMotionLevelController::calcOutputPorts(const std::string& instance_name, PrimitiveMotionLevelController::Ports& port, const cnoid::BodyPtr& robot_com, std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap) {
   // qCom
   if (port.m_qRef_.data.length() == robot_com->numJoints()){
     port.m_qCom_.data.length(robot_com->numJoints());
@@ -253,7 +253,7 @@ void PrimitiveMotionLevelController::calcOutputPorts(const std::string& instance
   port.m_primitiveCommandCom_ = port.m_primitiveCommandRef_;
   port.m_primitiveCommandCom_.tm = port.m_qRef_.tm;
   for(int i=0;i<port.m_primitiveCommandCom_.data.length();i++){
-    std::shared_ptr<PrimitiveMotionLevel::PrimitiveCommand> primitiveCommand = primitiveCommandMap[std::string(port.m_primitiveCommandCom_.data[i].name)];
+    std::shared_ptr<primitive_motion_level_tools::PrimitiveState> primitiveCommand = primitiveCommandMap[std::string(port.m_primitiveCommandCom_.data[i].name)];
     cnoid::Position pose = cnoid::Position::Identity();
     if(std::string(port.m_primitiveCommandCom_.data[i].name) == "com") pose.translation() = robot_com->centerOfMass();
     else if (robot_com->link(primitiveCommand->parentLinkName())) pose = robot_com->link(primitiveCommand->parentLinkName())->T() * primitiveCommand->localPose();

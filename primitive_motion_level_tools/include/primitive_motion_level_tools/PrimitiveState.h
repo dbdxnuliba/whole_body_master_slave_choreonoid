@@ -1,14 +1,14 @@
-#ifndef PrimitiveMotionLevelController_PrimitiveCommand_H
-#define PrimitiveMotionLevelController_PrimitiveCommand_H
+#ifndef PRIMITIVE_MOTION_LEVEL_TOOLS_PRIMITIVESTATE_H
+#define PRIMITIVE_MOTION_LEVEL_TOOLS_PRIMITIVESTATE_H
 
 #include <cnoid/Body>
 #include <primitive_motion_level_msgs/idl/PrimitiveState.hh>
 #include <cpp_filters/TwoPointInterpolator.h>
 
-namespace PrimitiveMotionLevel {
-  class PrimitiveCommand {
+namespace primitive_motion_level_tools {
+  class PrimitiveState {
   public:
-    PrimitiveCommand(const std::string& name);
+    PrimitiveState(const std::string& name);
     void updateFromIdl(const primitive_motion_level_msgs::PrimitiveStateIdl& idl);
     void updateTargetForOneStep(double dt);
     const std::string& name() const { return name_;}
@@ -22,6 +22,10 @@ namespace PrimitiveMotionLevel {
     const Eigen::SparseMatrix<double,Eigen::RowMajor>& poseC() const { return poseC_;}
     const cnoid::VectorX& poseld() const { return poseld_;}
     const cnoid::VectorX& poseud() const { return poseud_;}
+    const bool& isWrenchCGlobal() const { return isWrenchCGlobal_; }
+    const Eigen::SparseMatrix<double,Eigen::RowMajor>& wrenchC() const { return wrenchC_;}
+    const cnoid::VectorX& wrenchld() const { return wrenchld_;}
+    const cnoid::VectorX& wrenchud() const { return wrenchud_;}
     const cnoid::Vector6& M() const { return M_;}
     const cnoid::Vector6& D() const { return D_;}
     const cnoid::Vector6& K() const { return K_;}
@@ -48,6 +52,10 @@ namespace PrimitiveMotionLevel {
     Eigen::SparseMatrix<double,Eigen::RowMajor> poseC_;
     cnoid::VectorX poseld_;
     cnoid::VectorX poseud_;
+    bool isWrenchCGlobal_;
+    Eigen::SparseMatrix<double,Eigen::RowMajor> wrenchC_;
+    cnoid::VectorX wrenchld_;
+    cnoid::VectorX wrenchud_;
 
     cnoid::Vector6 M_, D_, K_;// local frame
 

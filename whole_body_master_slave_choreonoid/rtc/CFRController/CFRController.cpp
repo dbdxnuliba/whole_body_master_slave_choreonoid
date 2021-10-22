@@ -59,9 +59,9 @@ void CFRController::readPorts(const std::string& instance_name, CFRController::P
   if(port.m_primitiveCommandRefIn_.isNew()) port.m_primitiveCommandRefIn_.read();
 }
 
-void CFRController::getPrimitiveCommand(const std::string& instance_name, const CFRController::Ports& port, double dt, std::map<std::string, std::shared_ptr<CFR::PrimitiveCommand> >& primitiveCommandMap) {
+void CFRController::getPrimitiveCommand(const std::string& instance_name, const CFRController::Ports& port, double dt, std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap) {
   // 消滅したEndEffectorを削除
-  for(std::map<std::string, std::shared_ptr<CFR::PrimitiveCommand> >::iterator it = primitiveCommandMap.begin(); it != primitiveCommandMap.end(); ) {
+  for(std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >::iterator it = primitiveCommandMap.begin(); it != primitiveCommandMap.end(); ) {
     bool found = false;
     for(size_t i=0;i<port.m_primitiveCommandRef_.data.length();i++) {
       if(std::string(port.m_primitiveCommandRef_.data[i].name)==it->first) found = true;
@@ -72,13 +72,13 @@ void CFRController::getPrimitiveCommand(const std::string& instance_name, const 
   // 増加したEndEffectorの反映
   for(size_t i=0;i<port.m_primitiveCommandRef_.data.length();i++){
     if(primitiveCommandMap.find(std::string(port.m_primitiveCommandRef_.data[i].name))==primitiveCommandMap.end()){
-      primitiveCommandMap[std::string(port.m_primitiveCommandRef_.data[i].name)] = std::make_shared<CFR::PrimitiveCommand>(std::string(port.m_primitiveCommandRef_.data[i].name));
+      primitiveCommandMap[std::string(port.m_primitiveCommandRef_.data[i].name)] = std::make_shared<primitive_motion_level_tools::PrimitiveState>(std::string(port.m_primitiveCommandRef_.data[i].name));
     }
   }
   // 各指令値の反映
   for(size_t i=0;i<port.m_primitiveCommandRef_.data.length();i++){
     const primitive_motion_level_msgs::PrimitiveStateIdl& idl = port.m_primitiveCommandRef_.data[i];
-    std::shared_ptr<CFR::PrimitiveCommand> state = primitiveCommandMap[std::string(idl.name)];
+    std::shared_ptr<primitive_motion_level_tools::PrimitiveState> state = primitiveCommandMap[std::string(idl.name)];
     state->updateFromIdl(idl);
     state->updateTargetForOneStep(dt);
   }
@@ -101,7 +101,7 @@ void CFRController::preProcessForControl(const std::string& instance_name) {
 
 void CFRController::calcOutputPorts(const std::string& instance_name,
                                     CFRController::Ports& port,
-                                    std::map<std::string, std::shared_ptr<CFR::PrimitiveCommand> >& primitiveCommandMap,
+                                    std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap,
                                     double dt,
                                     const Eigen::SparseMatrix<double,Eigen::RowMajor>& M,// world frame
                                     const Eigen::VectorXd& l,// world frame

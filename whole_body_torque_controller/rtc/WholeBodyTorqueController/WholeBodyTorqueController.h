@@ -24,9 +24,9 @@
 #include <joint_limit_table/JointLimitTable.h>
 
 #include <primitive_motion_level_msgs/idl/PrimitiveState.hh>
+#include <primitive_motion_level_tools/PrimitiveState.h>
 #include <collision_checker_msgs/idl/Collision.hh>
 #include "WholeBodyTorqueControllerService_impl.h"
-#include "PrimitiveCommand.h"
 #include "TorqueController.h"
 #include "Collision.h"
 
@@ -167,7 +167,7 @@ protected:
   std::unordered_map<cnoid::LinkPtr, std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > > jointLimitTablesMap_;
 
   // 1. portから受け取ったprimitive motion level 指令など
-  std::map<std::string, std::shared_ptr<WholeBodyTorque::PrimitiveCommand> > primitiveCommandMap_;
+  std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> > primitiveCommandMap_;
   std::vector<std::shared_ptr<WholeBodyTorque::Collision> > collisions_;
 
   // 2. primitiveCommandMap_を受け取り、m_robot_comを計算する
@@ -177,7 +177,7 @@ protected:
   static void readPorts(const std::string& instance_name, WholeBodyTorqueController::Ports& port);
   static void calcReferenceRobot(const std::string& instance_name, const WholeBodyTorqueController::Ports& port, cnoid::BodyPtr& robot);
   static void calcActualRobot(const std::string& instance_name, const WholeBodyTorqueController::Ports& port, cnoid::BodyPtr& robot);
-  static void getPrimitiveCommand(const std::string& instance_name, const WholeBodyTorqueController::Ports& port, double dt, std::map<std::string, std::shared_ptr<WholeBodyTorque::PrimitiveCommand> >& primitiveCommandMap);
+  static void getPrimitiveCommand(const std::string& instance_name, const WholeBodyTorqueController::Ports& port, double dt, std::map<std::string, std::shared_ptr<primitive_motion_level_tools::PrimitiveState> >& primitiveCommandMap);
   static void getCollision(const std::string& instance_name, const WholeBodyTorqueController::Ports& port, std::vector<std::shared_ptr<WholeBodyTorque::Collision> >& collisions);
   static void processModeTransition(const std::string& instance_name, WholeBodyTorqueController::ControlMode& mode, const cnoid::BodyPtr& robot_ref, const cnoid::BodyPtr& robot_com, WholeBodyTorqueController::OutputInterpolators& outputInterpolators, const std::vector<cnoid::LinkPtr>& useJoints);
   static void preProcessForControl(const std::string& instance_name, WholeBodyTorque::TorqueController& torqueController);
